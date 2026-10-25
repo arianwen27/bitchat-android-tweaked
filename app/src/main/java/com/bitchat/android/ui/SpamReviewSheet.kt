@@ -53,6 +53,9 @@ import java.util.Locale
  * does not require switching the shield off. Settings live in the settings sheet, so this one is
  * read-plus-act rather than a settings page.
  */
+/** Ceiling on engine requests the review sheet makes for one scope, so a flood cannot flood the queue. */
+private const val MAX_TRANSLATED_PER_SCOPE = 25
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpamReviewSheet(
@@ -62,6 +65,7 @@ fun SpamReviewSheet(
 ) {
     if (!isPresented) return
     val hidden by SpamShieldService.hidden.collectAsState()
+    val hiddenTotal by SpamShieldService.hiddenCount.collectAsState()
     val records by TranslationStore.snapshot.collectAsState()
     val translationEnabled by TranslationPreferences.enabled.collectAsState()
     val globalTarget by TranslationPreferences.targetLang.collectAsState()
@@ -70,13 +74,28 @@ fun SpamReviewSheet(
 
     // Hidden messages never reach the chat list, so nothing else asks for their translations. The
     // sheet requests them for its own scope, per channel, so a hidden message can be read in the
-    // reader's language. Translation stays behind the same consent as the chat: private text is
-    // never sent, and nothing translated is stored.
+    // reader's language.
+    //
+    // Translation is capped per scope, and messages that are not language are skipped: a wall of one
+    // repeated word, a shouty flood, a link dump, or a character run has nothing for a model to
+    // translate, and pushing a flood through the engine spends model downloads and a serial queue on
+    // content that a reader will never read. That is the denial-of-service shape, so it is refused
+    // here. Private text is never sent, and nothing translated is stored.
+    val untranslatableShapes = setOf(
+        SpamSignal.RepetitiveContent,
+        SpamSignal.ShoutFlood,
+        SpamSignal.LinkFlood,
+        SpamSignal.CharRun
+    )
     LaunchedEffect(hidden, translationEnabled, globalTarget) {
         if (!translationEnabled) return@LaunchedEffect
         hidden.groupBy { it.scopeKey }.forEach { (scope, hits) ->
             val key = conversationKeyFor(scope)
-            TranslationStore.requestAll(hits.map { it.message }, TranslationPreferences.languageFor(key), key)
+            val worthReading = hits
+                .filter { it.message.content.any { char -> char.isLetter() } }
+                .filterNot { hit -> hit.signals.any { it in untranslatableShapes } }
+                .take(MAX_TRANSLATED_PER_SCOPE)
+            TranslationStore.requestAll(worthReading.map { it.message }, TranslationPreferences.languageFor(key), key)
         }
     }
 
@@ -98,7 +117,7 @@ fun SpamReviewSheet(
                         color = colorScheme.onSurface
                     )
                     Text(
-                        text = stringResource(R.string.spam_review_summary, hidden.size),
+                        text = stringResource(R.string.spam_review_summary, hiddenTotal),
                         fontFamily = BitchatFontFamily,
                         fontSize = 13.sp,
                         color = colorScheme.onSurfaceVariant,
@@ -134,7 +153,9 @@ fun SpamReviewSheet(
                         },
                         onBlockPhrase = {
                             SpamShieldPreferences.addBlockedPhrase(hit.message.content.trim().take(60))
-                        }
+                        },
+                        blockWord = SpamShieldService.suggestion(hit.message),
+                        onBlockWord = { word -> SpamShieldPreferences.addBlockedPhrase(word) }
                     )
                 }
             }
@@ -177,7 +198,9 @@ private fun SpamHitRow(
     onRevealAll: () -> Unit,
     onMute: () -> Unit,
     onRestoreTrust: () -> Unit,
-    onBlockPhrase: () -> Unit
+    onBlockPhrase: () -> Unit,
+    blockWord: String,
+    onBlockWord: (String) -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
     Column(
@@ -228,6 +251,12 @@ private fun SpamHitRow(
         )
         // Hidden spam is often unreadable by definition, so the sheet translates it for reading.
         val translated = (record?.state as? TranslationState.Ready)?.text
+        val status = when (val state = record?.state) {
+            is TranslationState.Running -> stringResource(R.string.translation_running_label)
+            is TranslationState.Failed ->
+                stringResource(R.string.translation_failed_label, state.reason)
+            else -> null
+        }
         if (!translated.isNullOrBlank()) {
             Text(
                 text = stringResource(R.string.spam_translated_label),
@@ -244,6 +273,15 @@ private fun SpamHitRow(
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
                 lineHeight = 17.sp
+            )
+        }
+        if (!status.isNullOrBlank()) {
+            Text(
+                text = status,
+                fontFamily = BitchatFontFamily,
+                fontSize = 11.sp,
+                color = colorScheme.onSurfaceVariant,
+                lineHeight = 15.sp
             )
         }
         // Five actions do not fit one row on a phone, so the actions wrap instead of being squeezed.
@@ -266,6 +304,13 @@ private fun SpamHitRow(
             TextButton(onClick = onBlockPhrase) {
                 Text(stringResource(R.string.spam_block_phrase), fontSize = 13.sp)
             }
+            // A wall of one repeated word is blocked by the word itself, so the repeated token is
+            // offered separately from the whole message text.
+            if (blockWord.isNotEmpty()) {
+                TextButton(onClick = { onBlockWord(blockWord) }) {
+                    Text(stringResource(R.string.spam_block_word, blockWord), fontSize = 13.sp)
+                }
+            }
         }
     }
 }
@@ -281,6 +326,8 @@ private fun signalLabel(signal: SpamSignal): Int = when (signal) {
     SpamSignal.LinkFlood -> R.string.spam_signal_links
     SpamSignal.ScamPhrase -> R.string.spam_signal_scam
     SpamSignal.ForwardChain -> R.string.spam_signal_chain
+    SpamSignal.RepetitiveContent -> R.string.spam_signal_repeat_content
+    SpamSignal.ShoutFlood -> R.string.spam_signal_shout_flood
     SpamSignal.NoProofOfWork -> R.string.spam_signal_pow
     SpamSignal.LowReputation -> R.string.spam_signal_reputation
 }

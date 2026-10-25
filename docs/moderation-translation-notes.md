@@ -135,6 +135,46 @@ Thresholds: Gentle 45/95, Balanced 30/55, Aggressive 20/40.
   through the real admission path (`IncomingMessageAdmission`), so content moderation is observable on
   an emulator with no radios. It broadcasts nothing and touches no peer. Never shipped in release.
 
+## Flood shapes the content rules could not see
+
+A live geohash channel was flooded with one word pasted many times per message, several accounts,
+with proof of work on most messages (3b-6b). The content rules admitted it: exact-repeat and
+cross-sender repeat compare whole messages, the flood was posted as many messages with the same word
+rotating, `CharRun` only catches repeated single characters, and proof-of-work scoring is off unless
+the reader opts in. Two shape signals close that gap, both deliberately shape-based so rotating the
+word does not escape:
+
+- `RepetitiveContent` - the same token repeated inside one message (`>=4` times), or the same line
+  repeated (`>=3` lines). A wall pasted as one message.
+- `ShoutFlood` - one shouted token per message (single all-caps word, letters, no spaces). The
+  signal counts how many messages in the last minute were one shouted token, so a rotating-word
+  flood is caught by its shape. A lone shout is scored `+10`, never decisive: `ok` and ordinary chat
+  stay clear. Both are in the content set for the second-strike auto-mute.
+
+Verified on device with injected synthetic flood: eight rotating shouts, first seven admitted with
+markers, the eighth hidden (`sender burst` + `shouty flood` + `poor sender history`); a 24-token word
+wall hidden with `repeated text`. Thresholds stay `30/55` Balanced, `20/40` Aggressive.
+
+`Block word` in the review sheet: a message with a repeated token offers that token as a one-tap
+block, because blocking the whole message text is not what a reader wants for a wall of one word.
+
+## Hidden counts keep counting
+
+The review list is capped (150 entries), so a count taken from that list stops growing during a
+flood and reads as if the shield went quiet. `SpamShieldService.hiddenCount` is a cumulative counter
+per app instance, shown in the moderation bar, the settings row, and the sheet header.
+
+## Translation is capped so spam cannot flood the queue
+
+Translating hidden spam spends model downloads and a serial engine queue on text a reader will never
+read. The review sheet now skips messages that are not language (link dumps, character runs,
+repeated walls, shout floods), caps requests at 25 per scope, and shows why a translation did not
+happen (`Translating…`, `No translation: <reason>`) instead of silently rendering nothing.
+Per-channel source language follows geohash nesting: a language set for a coarse area applies inside
+it, and a finer channel can override it. Short lines the probe cannot classify are sent for
+translation instead of being assumed English, which is what made the first coverage attempt work on
+only a fraction of a French channel.
+
 ## Still open
 - Mesh Lab validation on physical devices for the gate's transport coverage
   (BLE, Wi-Fi Aware, hotspot) — the emulator has no radios.

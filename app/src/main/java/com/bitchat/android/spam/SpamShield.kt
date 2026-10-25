@@ -34,6 +34,8 @@ enum class SpamSignal {
     LinkFlood,
     ScamPhrase,
     ForwardChain,
+    RepetitiveContent,
+    ShoutFlood,
     NoProofOfWork,
     LowReputation
 }
@@ -85,7 +87,12 @@ sealed class SpamVerdict {
  * enabled, mutes that sender for a bounded time so a spammer cannot keep flooding the channel.
  */
 class SpamShield {
-    private data class Observation(val senderLabel: String, val contentKey: String, val timestampMs: Long)
+    private data class Observation(
+        val senderLabel: String,
+        val contentKey: String,
+        val timestampMs: Long,
+        val shout: Boolean = false
+    )
 
     private companion object {
         const val OBSERVATION_WINDOW_MS = 600_000L // 10 minutes of repeat memory
@@ -242,6 +249,49 @@ class SpamShield {
             score += 15
         }
 
+        // In-message repetition: the shape of a flood posted as one message, e.g. one word pasted
+        // five times, or the same line pasted thirty times. Content matching finds nothing here,
+        // because the whole message is one message, and the repeat is inside it.
+        val lineRepeat = maxLineRepeat(normalized)
+        if (lineRepeat >= 3) {
+            signals += SpamSignal.RepetitiveContent
+            score += 35
+        }
+        val tokenRepeat = maxTokenRepeat(normalized)
+        when {
+            tokenRepeat >= 8 -> {
+                signals += SpamSignal.RepetitiveContent
+                score += 40
+            }
+            tokenRepeat >= 5 -> {
+                signals += SpamSignal.RepetitiveContent
+                score += 30
+            }
+            tokenRepeat >= 4 -> {
+                signals += SpamSignal.RepetitiveContent
+                score += 20
+            }
+        }
+
+        // Shouty single-token messages, one all-caps word per message. A spammer rotating words
+        // defeats exact-repeat detection, so the shape is counted: how many messages in the last
+        // minute were one shouted token. Rate alone stays harmless; a shout plus a shout flood
+        // is a pattern no conversation has.
+        val candidateShout = isShout(candidate.content)
+        val shoutLoad = prior.count {
+            it.shout && it.timestampMs >= candidate.timestampMs - FLOOD_WINDOW_MS
+        } + (if (candidateShout) 1 else 0)
+        if (shoutLoad >= 6) {
+            signals += SpamSignal.ShoutFlood
+            score += 35
+        } else if (shoutLoad >= 4) {
+            signals += SpamSignal.ShoutFlood
+            score += 20
+        } else if (candidateShout) {
+            signals += SpamSignal.ShoutFlood
+            score += 10
+        }
+
         val urlCount = countUrls(normalized)
         if (urlCount >= 3) {
             signals += SpamSignal.LinkFlood
@@ -362,7 +412,8 @@ class SpamShield {
             Observation(
                 senderLabel = candidate.senderLabel.lowercase(),
                 contentKey = normalized.take(CONTENT_KEY_MAX_CHARS),
-                timestampMs = candidate.timestampMs
+                timestampMs = candidate.timestampMs,
+                shout = isShout(candidate.content)
             )
         )
         while (window.size > MAX_OBSERVATIONS_PER_SCOPE) window.removeFirst()
@@ -469,7 +520,9 @@ class SpamShield {
         SpamSignal.ExactRepeat,
         SpamSignal.CrossSenderRepeat,
         SpamSignal.ForwardChain,
-        SpamSignal.LinkFlood
+        SpamSignal.LinkFlood,
+        SpamSignal.RepetitiveContent,
+        SpamSignal.ShoutFlood
     )
 
     private fun thresholds(mode: SpamMode): Pair<Int, Int> = when (mode) {
@@ -482,6 +535,49 @@ class SpamShield {
     private fun prune(window: ArrayDeque<Observation>, nowMs: Long) {
         val cutoff = nowMs - OBSERVATION_WINDOW_MS
         while (window.isNotEmpty() && window.first().timestampMs < cutoff) window.removeFirst()
+    }
+
+    /** Highest count of one token inside one message, e.g. "negro negro negro" -> 3. */
+    private fun maxTokenRepeat(text: String): Int {
+        val tokens = text.split(' ', '\n').filter { it.isNotEmpty() }
+        if (tokens.size < 4) return 0
+        return tokens.groupingBy { it }.eachCount().values.maxOrNull() ?: 0
+    }
+
+    /** Highest count of one line inside one message: a pasted wall of the same line. */
+    private fun maxLineRepeat(text: String): Int {
+        val lines = text.split('\n').map { it.trim() }.filter { it.isNotEmpty() }
+        if (lines.size < 3) return 0
+        return lines.groupingBy { it }.eachCount().values.maxOrNull() ?: 0
+    }
+
+    /**
+     * One shouted token: a single all-caps word with letters in it, no spaces.
+     *
+     * This is the shape a flood bot posts, one word per message, and it is deliberately shape-based
+     * so a spammer rotating words cannot escape by changing the word. Two-letter shouts ("ok") are
+     * excluded: they are ordinary chat.
+     */
+    private fun isShout(text: String): Boolean {
+        val trimmed = text.trim()
+        if (trimmed.length < 3) return false
+        if (trimmed.any { it.isWhitespace() }) return false
+        if (!trimmed.any { it.isLetter() }) return false
+        return trimmed.any { it.isUpperCase() } &&
+            trimmed.all { it.isUpperCase() || it.isDigit() || it.code in 0x0300..0x036F }
+    }
+
+    /**
+     * Token repeated at least three times in [content], for the one-tap block-word action.
+     * Empty string when nothing repeats enough times to be worth blocking.
+     */
+    @Synchronized
+    fun suggestionPhrase(content: String): String {
+        val counts = content.lowercase().split(' ', '\n', '\t')
+            .map { it.trim() }
+            .filter { it.length >= 3 && it.any { char -> char.isLetter() } }
+            .groupingBy { it }.eachCount()
+        return counts.filterValues { it >= 3 }.keys.maxByOrNull { counts[it] ?: 0 } ?: ""
     }
 
     private fun longestRun(text: String): Int {

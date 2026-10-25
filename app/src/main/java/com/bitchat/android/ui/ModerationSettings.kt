@@ -58,7 +58,7 @@ fun SpamShieldSettingsSection(onOpenReview: () -> Unit, modifier: Modifier = Mod
     val flagVisible by SpamShieldPreferences.flagVisible.collectAsState()
     val requirePow by SpamShieldPreferences.requireProofOfWork.collectAsState()
     val blocklist by SpamShieldPreferences.blocklist.collectAsState()
-    val hidden by SpamShieldService.hidden.collectAsState()
+    val hiddenTotal by SpamShieldService.hiddenCount.collectAsState()
     var draftPhrase by remember { mutableStateOf("") }
 
     Column(
@@ -181,7 +181,7 @@ fun SpamShieldSettingsSection(onOpenReview: () -> Unit, modifier: Modifier = Mod
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = stringResource(R.string.spam_review_action, hidden.size),
+                text = stringResource(R.string.spam_review_action, hiddenTotal),
                 fontFamily = BitchatFontFamily,
                 fontSize = 13.sp,
                 color = colorScheme.primary

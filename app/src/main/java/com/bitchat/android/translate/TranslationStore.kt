@@ -103,6 +103,14 @@ object TranslationStore {
         if (body.isEmpty()) return
 
         val id = message.id
+
+        // A message that is only a link, an id, or punctuation has nothing for a model to translate,
+        // so it is recorded as skipped instead of pushing a URL through a language pack.
+        if (!body.any { it.isLetter() }) {
+            publish(id, targetLang, TranslationState.Skipped)
+            return
+        }
+
         val existing = records.value[id]
         if (existing?.targetLang == targetLang &&
             (existing.state is TranslationState.Running ||
@@ -113,9 +121,12 @@ object TranslationStore {
         }
         if (id in inFlight) return
 
-        val sourceLang = sourceFor(conversationKey, body)
+        val sourceLang = TranslationPreferences.sourceFor(conversationKey)
+            ?: LanguageProbe.guessLanguage(body)
         if (sourceLang == targetLang) {
-            // Both ends are the same language, so a model would only echo the text back.
+            // Both ends are known to be the same language, so a model would only echo the text back.
+            // An unknown source is not treated as English: the engine falls back to its own default,
+            // and short chat lines that a probe cannot classify are sent for translation.
             publish(id, targetLang, TranslationState.Skipped)
             return
         }
@@ -170,11 +181,6 @@ object TranslationStore {
      * The key is the same string the UI uses for the conversation (`geo:<hash>`, `channel:<name>`,
      * `mesh`), so a language chosen in settings is the language the engine is given.
      */
-    private fun sourceFor(conversationKey: String, content: String): String =
-        TranslationPreferences.sourceFor(conversationKey)
-            ?: LanguageProbe.guessLanguage(content)
-            ?: LanguageProbe.DEFAULT_TAG
-
     /** Ready translation text for [messageId] in [targetLang], or null when none exists. */
     fun translatedText(messageId: String, targetLang: String): String? {
         val record = records.value[messageId] ?: return null

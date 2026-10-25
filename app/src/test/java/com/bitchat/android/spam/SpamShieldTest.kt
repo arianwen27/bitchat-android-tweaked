@@ -318,4 +318,52 @@ class SpamShieldTest {
         assertTrue(afterReset is SpamVerdict.Hidden)
         assertEquals(0L, (afterReset as SpamVerdict.Hidden).mutedUntilMs)
     }
+
+    @Test
+    fun aWordWallInOneMessageIsHiddenByRepetition() {
+        val shield = shield()
+        val wall = (1..30).joinToString("\n") { "negro negro negro negro negro" }
+
+        val verdict = evaluate(shield, candidate(wall, sender = "flood_speaker", scope = "geo:synthetic"), noMute)
+
+        assertTrue(verdict is SpamVerdict.Hidden)
+        assertTrue((verdict as SpamVerdict.Hidden).signals.contains(SpamSignal.RepetitiveContent))
+    }
+
+    @Test
+    fun aRotatingShoutFloodIsHiddenEvenWhenEveryWordDiffers() {
+        val shield = shield()
+        val aggressive = noMute.copy(mode = SpamMode.Aggressive)
+        val words = listOf("ALPHA", "BETA", "GAMMA", "DELTA", "EPSILON", "ZETA", "ETHA", "THETA", "IOTA", "KAPPA")
+
+        val verdicts = words.mapIndexed { index, word ->
+            evaluate(shield, candidate(word, sender = "shout_bot", offsetMs = index * 2_000L, scope = "geo:synthetic"), aggressive)
+        }
+
+        // Exact-repeat detection finds nothing, because no two messages share content. The shape
+        // (one shouted token, one after another) is what gets counted, and only once it sustains.
+        assertEquals(SpamVerdict.Clean, verdicts[0])
+        assertTrue(verdicts[3] is SpamVerdict.Flagged)
+        assertTrue(verdicts[5] is SpamVerdict.Hidden)
+        assertTrue(verdicts[9] is SpamVerdict.Hidden)
+        assertTrue((verdicts[9] as SpamVerdict.Hidden).signals.contains(SpamSignal.ShoutFlood))
+    }
+
+    @Test
+    fun aLoneShoutedWordIsNotHidden() {
+        val shield = shield()
+        val shout = evaluate(shield, candidate("NEGRO", sender = "chatter"), noMute)
+        val ordinary = evaluate(shield, candidate("ok", sender = "chatter", offsetMs = 4_000L), noMute)
+
+        assertEquals(SpamVerdict.Clean, shout)
+        assertEquals(SpamVerdict.Clean, ordinary)
+    }
+
+    @Test
+    fun theRepeatedWordIsOfferedForBlocking() {
+        val shield = shield()
+
+        assertEquals("negro", shield.suggestionPhrase("negro negro negro end"))
+        assertEquals("", shield.suggestionPhrase("a plain sentence about the mesh"))
+    }
 }

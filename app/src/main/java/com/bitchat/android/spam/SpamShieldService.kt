@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.update
  * real message because of a shield bug is worse than showing spam.
  */
 object SpamShieldService {
-    private const val MAX_LEDGER = 60
+    private const val MAX_LEDGER = 150
     private const val MAX_MEMOIZED_VERDICTS = 600
     private const val MAX_ALLOWED_IDS = 200
     private const val MAX_FLAGGED = 300
@@ -31,9 +31,18 @@ object SpamShieldService {
     private val allowedIds = LinkedHashSet<String>()
     private val _hidden = MutableStateFlow<List<SpamHit>>(emptyList())
     private val _flaggedIds = MutableStateFlow<Set<String>>(emptySet())
+    private val _hiddenTotal = MutableStateFlow(0)
 
     /** Hidden messages kept in memory only, newest first, for the review sheet. */
     val hidden: StateFlow<List<SpamHit>> = _hidden.asStateFlow()
+
+    /**
+     * Count of every message this app instance has hidden, not the size of the review list.
+     *
+     * The ledger is capped, so a count taken from the list stops growing during a flood and reads
+     * as if the shield went quiet. The flood usually keeps going, and the reader needs to see that.
+     */
+    val hiddenCount: StateFlow<Int> = _hiddenTotal.asStateFlow()
 
     /** Message ids currently marked as suspicious in the timeline. */
     val flaggedIds: StateFlow<Set<String>> = _flaggedIds.asStateFlow()
@@ -201,6 +210,7 @@ object SpamShieldService {
         verdicts.clear()
         allowedIds.clear()
         _hidden.value = emptyList()
+        _hiddenTotal.value = 0
         _flaggedIds.value = emptySet()
         SpamShieldPreferences.clearMutes()
     }
@@ -208,6 +218,15 @@ object SpamShieldService {
     /** Stable sender key: the Nostr pubkey when present, then the peer id, then the nickname. */
     fun keyOf(message: BitchatMessage): String =
         (message.senderNostrPubkey ?: message.senderPeerID ?: message.sender).lowercase()
+
+    /**
+     * Token worth blocking for a hidden message: the word repeated inside it.
+     *
+     * Empty string when nothing repeats. The review sheet offers this as a one-tap block, because a
+     * wall of one repeated word is the case where a reader wants to block the word itself, not the
+     * whole message text.
+     */
+    fun suggestion(message: BitchatMessage): String = shield.suggestionPhrase(message.content)
 
     private fun recordHidden(
         message: BitchatMessage,
@@ -227,6 +246,7 @@ object SpamShieldService {
             hiddenAtMs = System.currentTimeMillis()
         )
         _hidden.value = (listOf(hit) + _hidden.value).take(MAX_LEDGER)
+        _hiddenTotal.value += 1
         _flaggedIds.update { it - message.id }
     }
 

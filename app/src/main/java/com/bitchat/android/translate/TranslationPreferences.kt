@@ -155,7 +155,22 @@ object TranslationPreferences {
      * translated the same way.
      */
     fun languageFor(conversationKey: String): String =
-        _conversationLangs.value[conversationKey] ?: _targetLang.value
+        lookup(_conversationLangs.value, conversationKey) ?: _targetLang.value
+
+    /**
+     * Looks up a conversation setting, following geohash nesting.
+     *
+     * Location channels nest by geohash prefix, so a language chosen for a coarse area (a country)
+     * applies inside it, and a finer channel can override it. `geo:u0` covers `geo:u0sv0s`, and an
+     * entry on the finer key wins. Non-location keys (`channel:<name>`, `mesh`) are matched exactly.
+     */
+    private fun lookup(map: Map<String, String>, key: String): String? {
+        if (!key.startsWith("geo:")) return map[key]
+        for (end in key.length downTo "geo:".length + 1) {
+            map[key.substring(0, end)]?.let { return it }
+        }
+        return null
+    }
 
     fun setEnabled(value: Boolean) {
         _enabled.value = value
@@ -208,7 +223,7 @@ object TranslationPreferences {
      * chat lines are where a probe is weakest. An explicit source also selects the right ML Kit model,
      * so a French channel uses the French model instead of an English one.
      */
-    fun sourceFor(conversationKey: String): String? = _conversationSourceLangs.value[conversationKey]
+    fun sourceFor(conversationKey: String): String? = lookup(_conversationSourceLangs.value, conversationKey)
 
     /** A null tag returns the conversation to per-message detection. */
     fun setConversationSourceLanguage(conversationKey: String, tag: String?) {

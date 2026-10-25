@@ -204,6 +204,29 @@ class SpamShieldServiceTest {
         assertFalse(SpamShieldService.admit(geoMessage("wl-3", "dave", "send 1 get 2 guaranteed profit"), "me"))
     }
 
+    @Test
+    fun hiddenCountKeepsCountingPastTheLedgerCap() {
+        SpamShieldPreferences.addBlockedPhrase("blockme")
+
+        for (index in 0 until 155) {
+            val message = publicMessage("id-cap-$index", "flood_speaker", "blockme line $index")
+            assertFalse(SpamShieldService.admit(message, "me"))
+        }
+
+        // The ledger is capped, so its size cannot be the count shown in the bar: the bar must keep
+        // counting during a flood, or a flood looks like the shield went quiet.
+        assertEquals(150, SpamShieldService.hidden.value.size)
+        assertEquals(155, SpamShieldService.hiddenCount.value)
+    }
+
+    @Test
+    fun aRepeatedWordInsideAMessageIsOfferedAsABlockWord() {
+        val message = geoMessage("wall-1", "flood_speaker", "negro negro negro negro")
+
+        assertEquals("negro", SpamShieldService.suggestion(message))
+        assertEquals("", SpamShieldService.suggestion(geoMessage("plain-1", "carol", "a plain question about the mesh")))
+    }
+
     private fun publicMessage(id: String, sender: String, content: String) = BitchatMessage(
         id = id,
         sender = sender,
