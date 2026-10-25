@@ -36,6 +36,7 @@ enum class SpamSignal {
     ForwardChain,
     RepetitiveContent,
     ShoutFlood,
+    RateFlood,
     NoProofOfWork,
     LowReputation
 }

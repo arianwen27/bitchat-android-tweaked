@@ -699,6 +699,7 @@
   <string name="spam_signal_blocked">blocked phrase</string>
   <string name="spam_signal_repeat">repeat</string>
   <string name="spam_signal_shouty_flood">shouty flood</string>
+    <string name="spam_signal_rate">posted too fast</string>
   <string name="spam_signal_repetitive_content">repeated text</string>
   <string name="spam_signal_copycat">copied by several senders</string>
   <string name="spam_signal_burst">sender burst</string>

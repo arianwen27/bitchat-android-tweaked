@@ -47,6 +47,23 @@ object SpamShieldService {
     /** Message ids currently marked as suspicious in the timeline. */
     val flaggedIds: StateFlow<Set<String>> = _flaggedIds.asStateFlow()
 
+    /**
+     * Record a hide decided by the rate and repetition filter, so those messages are countable,
+     * reviewable and translatable like the shield's own. The filter has no ledger of its own, and
+     * a silent hide leaves the reader with no way to tell a flood from a quiet channel.
+     */
+    @Synchronized
+    fun recordFilterHide(message: BitchatMessage, verdict: SpamVerdict) {
+        val signal = when (verdict) {
+            SpamVerdict.ALLOWED -> return
+            SpamVerdict.MESSAGE_RATE, SpamVerdict.CHARACTER_RATE -> SpamSignal.RateFlood
+            SpamVerdict.LINK_RATE -> SpamSignal.LinkFlood
+            SpamVerdict.REPEATED_MESSAGE -> SpamSignal.ExactRepeat
+            SpamVerdict.REPEATED_ACROSS_USERS -> SpamSignal.CrossSenderRepeat
+            SpamVerdict.REPEATED_CHARACTERS -> SpamSignal.CharRun
+        }
+        recordHidden(message, message.channel ?: MESH_SCOPE, keyOf(message), message.sender, setOf(signal), 60)
+    }
     fun init(context: Context) {
         SpamShieldPreferences.init(context)
         shield.restoreMutes(SpamShieldPreferences.loadMutes(), System.currentTimeMillis())
