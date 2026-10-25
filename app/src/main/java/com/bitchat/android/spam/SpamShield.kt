@@ -68,15 +68,15 @@ data class SpamPolicy(
     val requireProofOfWorkInGeohash: Boolean = false
 )
 
-sealed class SpamVerdict {
+sealed class ShieldVerdict {
     /** Nothing crossed the flag threshold; the message is shown normally. */
-    object Clean : SpamVerdict()
+    object Clean : ShieldVerdict()
 
     /** Visible, but marked as suspicious in the timeline. */
-    data class Flagged(val score: Int, val signals: Set<SpamSignal>) : SpamVerdict()
+    data class Flagged(val score: Int, val signals: Set<SpamSignal>) : ShieldVerdict()
 
     /** Removed from the timeline. The sender may also be temporarily muted. */
-    data class Hidden(val score: Int, val signals: Set<SpamSignal>, val mutedUntilMs: Long) : SpamVerdict()
+    data class Hidden(val score: Int, val signals: Set<SpamSignal>, val mutedUntilMs: Long) : ShieldVerdict()
 }
 
 /**
@@ -171,20 +171,20 @@ class SpamShield {
      * judged as a live flood: window pruning is done against the message time, not wall time.
      */
     @Synchronized
-    fun evaluate(candidate: SpamCandidate, policy: SpamPolicy, nowMs: Long): SpamVerdict {
-        if (policy.mode == SpamMode.Off) return SpamVerdict.Clean
-        if (candidate.fromSelf || candidate.system) return SpamVerdict.Clean
+    fun evaluate(candidate: SpamCandidate, policy: SpamPolicy, nowMs: Long): ShieldVerdict {
+        if (policy.mode == SpamMode.Off) return ShieldVerdict.Clean
+        if (candidate.fromSelf || candidate.system) return ShieldVerdict.Clean
 
         val senderKey = candidate.senderKey.lowercase()
         val senderLabel = candidate.senderLabel.lowercase()
         val mutedUntil = muteExpiry(senderKey, senderLabel, nowMs)
         if (mutedUntil != null) {
-            return SpamVerdict.Hidden(SCORE_MUTE, setOf(SpamSignal.MutedSender), mutedUntil)
+            return ShieldVerdict.Hidden(SCORE_MUTE, setOf(SpamSignal.MutedSender), mutedUntil)
         }
 
-        if (!candidate.inspectable) return SpamVerdict.Clean
+        if (!candidate.inspectable) return ShieldVerdict.Clean
         val normalized = normalize(candidate.content)
-        if (normalized.isEmpty()) return SpamVerdict.Clean
+        if (normalized.isEmpty()) return ShieldVerdict.Clean
 
         val window = scopes.getOrPut(candidate.scopeKey) { ArrayDeque() }
         prune(window, candidate.timestampMs)
@@ -337,22 +337,22 @@ class SpamShield {
 
         if (signals.isEmpty()) {
             record(candidate, normalized, senderKey, spam = false)
-            return SpamVerdict.Clean
+            return ShieldVerdict.Clean
         }
 
         val (flagThreshold, hideThreshold) = thresholds(policy.mode)
         if (score >= hideThreshold) {
             record(candidate, normalized, senderKey, spam = true)
             val mutedUntil = applyAutoMute(signals, senderKey, senderLabel, candidate.timestampMs, policy)
-            return SpamVerdict.Hidden(score, signals.toSet(), mutedUntil)
+            return ShieldVerdict.Hidden(score, signals.toSet(), mutedUntil)
         }
         if (score >= flagThreshold) {
             record(candidate, normalized, senderKey, spam = true)
-            return SpamVerdict.Flagged(score, signals.toSet())
+            return ShieldVerdict.Flagged(score, signals.toSet())
         }
 
         record(candidate, normalized, senderKey, spam = false)
-        return SpamVerdict.Clean
+        return ShieldVerdict.Clean
     }
 
     @Synchronized

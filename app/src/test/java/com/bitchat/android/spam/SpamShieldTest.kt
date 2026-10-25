@@ -40,8 +40,8 @@ class SpamShieldTest {
         // Strikes reset to zero, so the next content hide counts again instead of muting.
         val firstAfterRestore =
             evaluate(shield, candidate("send 1 get 2 guaranteed profit", offsetMs = 30_000), balanced)
-        assertTrue(firstAfterRestore is SpamVerdict.Hidden)
-        assertEquals(0L, (firstAfterRestore as SpamVerdict.Hidden).mutedUntilMs)
+        assertTrue(firstAfterRestore is ShieldVerdict.Hidden)
+        assertEquals(0L, (firstAfterRestore as ShieldVerdict.Hidden).mutedUntilMs)
     }
 
     private fun candidate(
@@ -63,7 +63,7 @@ class SpamShieldTest {
     @Test
     fun ordinaryMessageIsNotScored() {
         val verdict = evaluate(shield(), candidate("how is the mesh behaving today"), balanced)
-        assertEquals(SpamVerdict.Clean, verdict)
+        assertEquals(ShieldVerdict.Clean, verdict)
     }
 
     @Test
@@ -73,10 +73,10 @@ class SpamShieldTest {
         val second = evaluate(shield, candidate("join my site for free chips", offsetMs = 20_000), noMute)
         val third = evaluate(shield, candidate("join my site for free chips", offsetMs = 40_000), noMute)
 
-        assertEquals(SpamVerdict.Clean, first)
-        assertTrue(second is SpamVerdict.Flagged)
-        assertTrue(third is SpamVerdict.Hidden)
-        assertTrue((second as SpamVerdict.Flagged).signals.contains(SpamSignal.ExactRepeat))
+        assertEquals(ShieldVerdict.Clean, first)
+        assertTrue(second is ShieldVerdict.Flagged)
+        assertTrue(third is ShieldVerdict.Hidden)
+        assertTrue((second as ShieldVerdict.Flagged).signals.contains(SpamSignal.ExactRepeat))
     }
 
     @Test
@@ -89,8 +89,8 @@ class SpamShieldTest {
             noMute
         )
 
-        assertEquals(SpamVerdict.Clean, original)
-        val hidden = copy as SpamVerdict.Hidden
+        assertEquals(ShieldVerdict.Clean, original)
+        val hidden = copy as ShieldVerdict.Hidden
         assertTrue(hidden.signals.contains(SpamSignal.CrossSenderRepeat))
     }
 
@@ -102,7 +102,7 @@ class SpamShieldTest {
         }
         // Rate alone is never decisive. Nine distinct lines in eighteen seconds is a lively channel,
         // and every one of them stays visible.
-        assertTrue(chatter.all { it == SpamVerdict.Clean })
+        assertTrue(chatter.all { it == ShieldVerdict.Clean })
 
         val floodShield = shield()
         val flood = (0 until 16).map { index ->
@@ -111,8 +111,8 @@ class SpamShieldTest {
         // Sixteen lines in sixteen seconds is a flood: the rate signal plus the channel load crosses
         // the flag threshold on the last one, and the sender's reputation is what pushes later
         // messages past the hide threshold.
-        assertTrue(flood.take(15).all { it == SpamVerdict.Clean })
-        assertTrue(flood[15] is SpamVerdict.Flagged)
+        assertTrue(flood.take(15).all { it == ShieldVerdict.Clean })
+        assertTrue(flood[15] is ShieldVerdict.Flagged)
     }
 
     @Test
@@ -122,7 +122,7 @@ class SpamShieldTest {
             evaluate(shield, candidate("distinct line number $index", offsetMs = index * 2_000L), noMute)
         }
         val repeated = evaluate(shield, candidate("distinct line number 0", offsetMs = 18_000), noMute)
-        val hidden = repeated as SpamVerdict.Hidden
+        val hidden = repeated as ShieldVerdict.Hidden
         assertTrue(hidden.signals.contains(SpamSignal.ExactRepeat))
         assertTrue(hidden.signals.contains(SpamSignal.SenderBurst))
     }
@@ -132,7 +132,7 @@ class SpamShieldTest {
         val shield = shield()
         val policy = noMute.copy(blocklist = listOf("free airdrop"))
         val verdict = evaluate(shield, candidate("fr\u200Bee ai\u200Brdrop now"), policy)
-        val hidden = verdict as SpamVerdict.Hidden
+        val hidden = verdict as ShieldVerdict.Hidden
         assertTrue(hidden.signals.contains(SpamSignal.BlockedPhrase))
     }
 
@@ -144,8 +144,8 @@ class SpamShieldTest {
             candidate("read https://example.com/first and http://example.org/second today"),
             balanced
         )
-        assertTrue(verdict is SpamVerdict.Flagged)
-        assertTrue((verdict as SpamVerdict.Flagged).signals.contains(SpamSignal.LinkFlood))
+        assertTrue(verdict is ShieldVerdict.Flagged)
+        assertTrue((verdict as ShieldVerdict.Flagged).signals.contains(SpamSignal.LinkFlood))
     }
 
     @Test
@@ -156,8 +156,8 @@ class SpamShieldTest {
             candidate("Fwd: hello\nFwd: hello\nforward this to all your peers"),
             balanced
         )
-        assertTrue(verdict is SpamVerdict.Flagged)
-        assertTrue((verdict as SpamVerdict.Flagged).signals.contains(SpamSignal.ForwardChain))
+        assertTrue(verdict is ShieldVerdict.Flagged)
+        assertTrue((verdict as ShieldVerdict.Flagged).signals.contains(SpamSignal.ForwardChain))
     }
 
     @Test
@@ -169,12 +169,12 @@ class SpamShieldTest {
 
         // First strike hides the message and does not silence the sender: a person who posted one
         // scam line once is not the same as a flood account.
-        assertTrue(first is SpamVerdict.Hidden)
-        assertEquals(0L, (first as SpamVerdict.Hidden).mutedUntilMs)
-        assertTrue(second is SpamVerdict.Hidden)
-        assertTrue((second as SpamVerdict.Hidden).mutedUntilMs > 0L)
+        assertTrue(first is ShieldVerdict.Hidden)
+        assertEquals(0L, (first as ShieldVerdict.Hidden).mutedUntilMs)
+        assertTrue(second is ShieldVerdict.Hidden)
+        assertTrue((second as ShieldVerdict.Hidden).mutedUntilMs > 0L)
 
-        val muted = later as SpamVerdict.Hidden
+        val muted = later as ShieldVerdict.Hidden
         assertTrue(muted.signals.contains(SpamSignal.MutedSender))
         assertTrue(shield.isMuted("sender_a", "sender_a", BASE + 60_000))
     }
@@ -192,15 +192,15 @@ class SpamShieldTest {
         )
 
         assertFalse(shield.isMuted("sender_a", "sender_a", BASE + 5 * 60_000L))
-        assertEquals(SpamVerdict.Clean, afterExpiry)
+        assertEquals(ShieldVerdict.Clean, afterExpiry)
     }
 
     @Test
     fun zeroAutoMuteNeverMutes() {
         val shield = shield()
         val verdict = evaluate(shield, candidate("send 1 get 2 guaranteed profit"), noMute)
-        assertTrue(verdict is SpamVerdict.Hidden)
-        assertEquals(0L, (verdict as SpamVerdict.Hidden).mutedUntilMs)
+        assertTrue(verdict is ShieldVerdict.Hidden)
+        assertEquals(0L, (verdict as ShieldVerdict.Hidden).mutedUntilMs)
         assertFalse(shield.isMuted("sender_a", "sender_a", BASE))
     }
 
@@ -214,7 +214,7 @@ class SpamShieldTest {
                 candidate("send 1 get 2 guaranteed profit https://example.com", offsetMs = index * 1_000L),
                 policy
             )
-            assertEquals(SpamVerdict.Clean, verdict)
+            assertEquals(ShieldVerdict.Clean, verdict)
         }
         assertFalse(shield.isMuted("sender_a", "sender_a", BASE + 5_000))
     }
@@ -230,7 +230,7 @@ class SpamShieldTest {
             candidate("", offsetMs = 30_000),
             candidate("   ", offsetMs = 40_000)
         ).forEach { candidate ->
-            assertEquals(SpamVerdict.Clean, evaluate(shield, candidate, policy))
+            assertEquals(ShieldVerdict.Clean, evaluate(shield, candidate, policy))
         }
     }
 
@@ -247,7 +247,7 @@ class SpamShieldTest {
             aggressivePolicy,
             BASE
         )
-        assertTrue(aggressiveVerdict is SpamVerdict.Hidden)
+        assertTrue(aggressiveVerdict is ShieldVerdict.Hidden)
 
         val gentle = SpamShield()
         val gentlePolicy = SpamPolicy(mode = SpamMode.Gentle, autoMuteMinutes = 0)
@@ -257,7 +257,7 @@ class SpamShieldTest {
             gentlePolicy,
             BASE + 5_000
         )
-        assertTrue(gentleVerdict is SpamVerdict.Flagged)
+        assertTrue(gentleVerdict is ShieldVerdict.Flagged)
     }
 
     @Test
@@ -270,8 +270,8 @@ class SpamShieldTest {
             balanced
         )
 
-        assertEquals(SpamVerdict.Clean, global)
-        assertEquals(SpamVerdict.Clean, other)
+        assertEquals(ShieldVerdict.Clean, global)
+        assertEquals(ShieldVerdict.Clean, other)
     }
 
     @Test
@@ -290,18 +290,18 @@ class SpamShieldTest {
         )
         val meshWithoutPow = evaluate(shield, candidate("mesh sentence without proof of work"), policy)
 
-        assertEquals(SpamVerdict.Clean, withPow)
-        assertTrue(withoutPow is SpamVerdict.Flagged)
-        assertEquals(SpamVerdict.Clean, meshWithoutPow)
+        assertEquals(ShieldVerdict.Clean, withPow)
+        assertTrue(withoutPow is ShieldVerdict.Flagged)
+        assertEquals(ShieldVerdict.Clean, meshWithoutPow)
     }
 
     @Test
     fun aQuietSenderReturnsToNeutralAfterDecay() {
         val shield = shield()
         val spam = evaluate(shield, candidate("guaranteed returns 100% profit"), noMute)
-        assertTrue(spam is SpamVerdict.Hidden)
+        assertTrue(spam is ShieldVerdict.Hidden)
         val later = evaluate(shield, candidate("a plain question about the mesh", offsetMs = 3 * 3_600_000L), noMute)
-        assertEquals(SpamVerdict.Clean, later)
+        assertEquals(ShieldVerdict.Clean, later)
     }
 
     @Test
@@ -315,8 +315,8 @@ class SpamShieldTest {
         // Reset drops windows, strikes and mutes, not the content rules: the same scam text is still
         // hidden, and a reset sender starts from zero strikes.
         val afterReset = evaluate(shield, candidate("send 1 get 2 guaranteed profit"), balanced)
-        assertTrue(afterReset is SpamVerdict.Hidden)
-        assertEquals(0L, (afterReset as SpamVerdict.Hidden).mutedUntilMs)
+        assertTrue(afterReset is ShieldVerdict.Hidden)
+        assertEquals(0L, (afterReset as ShieldVerdict.Hidden).mutedUntilMs)
     }
 
     @Test
@@ -326,8 +326,8 @@ class SpamShieldTest {
 
         val verdict = evaluate(shield, candidate(wall, sender = "flood_speaker", scope = "geo:synthetic"), noMute)
 
-        assertTrue(verdict is SpamVerdict.Hidden)
-        assertTrue((verdict as SpamVerdict.Hidden).signals.contains(SpamSignal.RepetitiveContent))
+        assertTrue(verdict is ShieldVerdict.Hidden)
+        assertTrue((verdict as ShieldVerdict.Hidden).signals.contains(SpamSignal.RepetitiveContent))
     }
 
     @Test
@@ -342,11 +342,11 @@ class SpamShieldTest {
 
         // Exact-repeat detection finds nothing, because no two messages share content. The shape
         // (one shouted token, one after another) is what gets counted, and only once it sustains.
-        assertEquals(SpamVerdict.Clean, verdicts[0])
-        assertTrue(verdicts[3] is SpamVerdict.Flagged)
-        assertTrue(verdicts[5] is SpamVerdict.Hidden)
-        assertTrue(verdicts[9] is SpamVerdict.Hidden)
-        assertTrue((verdicts[9] as SpamVerdict.Hidden).signals.contains(SpamSignal.ShoutFlood))
+        assertEquals(ShieldVerdict.Clean, verdicts[0])
+        assertTrue(verdicts[3] is ShieldVerdict.Flagged)
+        assertTrue(verdicts[5] is ShieldVerdict.Hidden)
+        assertTrue(verdicts[9] is ShieldVerdict.Hidden)
+        assertTrue((verdicts[9] as ShieldVerdict.Hidden).signals.contains(SpamSignal.ShoutFlood))
     }
 
     @Test
@@ -355,8 +355,8 @@ class SpamShieldTest {
         val shout = evaluate(shield, candidate("SALE", sender = "chatter"), noMute)
         val ordinary = evaluate(shield, candidate("ok", sender = "chatter", offsetMs = 4_000L), noMute)
 
-        assertEquals(SpamVerdict.Clean, shout)
-        assertEquals(SpamVerdict.Clean, ordinary)
+        assertEquals(ShieldVerdict.Clean, shout)
+        assertEquals(ShieldVerdict.Clean, ordinary)
     }
 
     @Test

@@ -43,7 +43,7 @@ class SpamShieldServiceTest {
 
         assertTrue(SpamShieldService.admit(message, "me"))
         assertTrue(SpamShieldService.admit(message, "me"))
-        assertEquals(SpamVerdict.Clean, SpamShieldService.verdictFor("id-clean"))
+        assertEquals(ShieldVerdict.Clean, SpamShieldService.verdictFor("id-clean"))
         assertTrue(SpamShieldService.hidden.value.isEmpty())
     }
 
@@ -174,7 +174,7 @@ class SpamShieldServiceTest {
         val admitted = SpamShieldService.admit(flagged, "me")
         assertTrue(admitted)
         val verdict = SpamShieldService.verdictFor("flag-1")
-        if (verdict is SpamVerdict.Flagged) {
+        if (verdict is ShieldVerdict.Flagged) {
             assertTrue(SpamShieldService.flaggedIds.value.contains("flag-1"))
         }
     }

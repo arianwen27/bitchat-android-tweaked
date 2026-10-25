@@ -27,7 +27,7 @@ object SpamShieldService {
     private const val SPAMMER_REPUTATION_PENALTY = 8
 
     private val shield = SpamShield()
-    private val verdicts = LinkedHashMap<String, SpamVerdict>(64, 0.75f, true)
+    private val verdicts = LinkedHashMap<String, ShieldVerdict>(64, 0.75f, true)
     private val allowedIds = LinkedHashSet<String>()
     private val _hidden = MutableStateFlow<List<SpamHit>>(emptyList())
     private val _flaggedIds = MutableStateFlow<Set<String>>(emptySet())
@@ -73,7 +73,7 @@ object SpamShieldService {
             val id = message.id
             if (id in allowedIds) return true
             val cached = verdicts[id]
-            if (cached != null) return cached is SpamVerdict.Clean
+            if (cached != null) return cached is ShieldVerdict.Clean
 
             val nowMs = System.currentTimeMillis()
             val scopeKey = message.channel ?: MESH_SCOPE
@@ -103,7 +103,7 @@ object SpamShieldService {
             )
             memoize(id, verdict)
             when (verdict) {
-                is SpamVerdict.Hidden -> {
+                is ShieldVerdict.Hidden -> {
                     recordHidden(
                         message,
                         scopeKey,
@@ -116,12 +116,12 @@ object SpamShieldService {
                     false
                 }
 
-                is SpamVerdict.Flagged -> {
+                is ShieldVerdict.Flagged -> {
                     recordFlag(id)
                     true
                 }
 
-                SpamVerdict.Clean -> true
+                ShieldVerdict.Clean -> true
             }
         } catch (_: Exception) {
             true
@@ -129,7 +129,7 @@ object SpamShieldService {
     }
 
     /** Verdict recorded for a message, so the UI can mark a flagged row. */
-    fun verdictFor(messageId: String): SpamVerdict? = synchronized(this) { verdicts[messageId] }
+    fun verdictFor(messageId: String): ShieldVerdict? = synchronized(this) { verdicts[messageId] }
 
     /**
      * Re-admit a hidden message and return it for the caller to replay into the timeline.
@@ -141,7 +141,7 @@ object SpamShieldService {
     fun reveal(messageId: String): BitchatMessage? {
         val hit = _hidden.value.firstOrNull { it.message.id == messageId } ?: return null
         allowId(messageId)
-        verdicts[messageId] = SpamVerdict.Clean
+        verdicts[messageId] = ShieldVerdict.Clean
         _hidden.value = _hidden.value.filterNot { it.message.id == messageId }
         return hit.message
     }
@@ -151,7 +151,7 @@ object SpamShieldService {
     fun revealScope(scopeKey: String): List<BitchatMessage> {
         val hits = _hidden.value.filter { it.scopeKey == scopeKey }
         hits.forEach { allowId(it.message.id) }
-        hits.forEach { verdicts[it.message.id] = SpamVerdict.Clean }
+        hits.forEach { verdicts[it.message.id] = ShieldVerdict.Clean }
         _hidden.value = _hidden.value.filterNot { it.scopeKey == scopeKey }
         return hits.map(SpamHit::message)
     }
@@ -196,7 +196,7 @@ object SpamShieldService {
         val key = senderKey.lowercase()
         val dropped = shield.restoreTrust(senderKey, senderLabel)
         val hits = _hidden.value.filter { it.senderKey == key }
-        hits.forEach { it.message.id.let { id -> allowId(id); verdicts[id] = SpamVerdict.Clean } }
+        hits.forEach { it.message.id.let { id -> allowId(id); verdicts[id] = ShieldVerdict.Clean } }
         _hidden.value = _hidden.value.filterNot { it.senderKey == key }
         _flaggedIds.update { ids -> ids - hits.map { it.message.id }.toSet() }
         SpamShieldPreferences.saveMutes(shield.mutedSenders(System.currentTimeMillis()))
@@ -262,7 +262,7 @@ object SpamShieldService {
             if (next.size > MAX_FLAGGED) next.drop(next.size - MAX_FLAGGED).toSet() else next
     }
 
-    private fun memoize(id: String, verdict: SpamVerdict) {
+    private fun memoize(id: String, verdict: ShieldVerdict) {
         verdicts[id] = verdict
         while (verdicts.size > MAX_MEMOIZED_VERDICTS) verdicts.remove(verdicts.keys.first())
     }
