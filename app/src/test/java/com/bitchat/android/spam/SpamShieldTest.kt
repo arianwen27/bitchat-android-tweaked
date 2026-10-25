@@ -322,7 +322,7 @@ class SpamShieldTest {
     @Test
     fun aWordWallInOneMessageIsHiddenByRepetition() {
         val shield = shield()
-        val wall = (1..30).joinToString("\n") { "negro negro negro negro negro" }
+        val wall = (1..30).joinToString("\n") { "sale sale sale sale sale" }
 
         val verdict = evaluate(shield, candidate(wall, sender = "flood_speaker", scope = "geo:synthetic"), noMute)
 
@@ -352,7 +352,7 @@ class SpamShieldTest {
     @Test
     fun aLoneShoutedWordIsNotHidden() {
         val shield = shield()
-        val shout = evaluate(shield, candidate("NEGRO", sender = "chatter"), noMute)
+        val shout = evaluate(shield, candidate("SALE", sender = "chatter"), noMute)
         val ordinary = evaluate(shield, candidate("ok", sender = "chatter", offsetMs = 4_000L), noMute)
 
         assertEquals(SpamVerdict.Clean, shout)
@@ -363,7 +363,7 @@ class SpamShieldTest {
     fun theRepeatedWordIsOfferedForBlocking() {
         val shield = shield()
 
-        assertEquals("negro", shield.suggestionPhrase("negro negro negro end"))
+        assertEquals("sale", shield.suggestionPhrase("sale sale sale end"))
         assertEquals("", shield.suggestionPhrase("a plain sentence about the mesh"))
     }
 }

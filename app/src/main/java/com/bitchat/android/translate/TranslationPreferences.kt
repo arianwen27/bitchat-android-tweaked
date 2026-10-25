@@ -161,7 +161,8 @@ object TranslationPreferences {
      * Looks up a conversation setting, following geohash nesting.
      *
      * Location channels nest by geohash prefix, so a language chosen for a coarse area (a country)
-     * applies inside it, and a finer channel can override it. `geo:u0` covers `geo:u0sv0s`, and an
+     * applies inside it, and a finer channel can override it. A coarse key covers any key that
+     * starts with it, and an explicit setting on the finer key wins.
      * entry on the finer key wins. Non-location keys (`channel:<name>`, `mesh`) are matched exactly.
      */
     private fun lookup(map: Map<String, String>, key: String): String? {

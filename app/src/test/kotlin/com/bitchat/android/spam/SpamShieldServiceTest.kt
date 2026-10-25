@@ -221,9 +221,9 @@ class SpamShieldServiceTest {
 
     @Test
     fun aRepeatedWordInsideAMessageIsOfferedAsABlockWord() {
-        val message = geoMessage("wall-1", "flood_speaker", "negro negro negro negro")
+        val message = geoMessage("wall-1", "flood_speaker", "sale sale sale sale")
 
-        assertEquals("negro", SpamShieldService.suggestion(message))
+        assertEquals("sale", SpamShieldService.suggestion(message))
         assertEquals("", SpamShieldService.suggestion(geoMessage("plain-1", "carol", "a plain question about the mesh")))
     }
 

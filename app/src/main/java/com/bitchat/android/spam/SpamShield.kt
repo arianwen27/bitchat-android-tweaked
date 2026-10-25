@@ -537,7 +537,7 @@ class SpamShield {
         while (window.isNotEmpty() && window.first().timestampMs < cutoff) window.removeFirst()
     }
 
-    /** Highest count of one token inside one message, e.g. "negro negro negro" -> 3. */
+    /** Highest count of one token inside one message, e.g. "buy buy buy" -> 3. */
     private fun maxTokenRepeat(text: String): Int {
         val tokens = text.split(' ', '\n').filter { it.isNotEmpty() }
         if (tokens.size < 4) return 0
