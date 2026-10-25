@@ -1,195 +1,108 @@
-# Moderation + auto translation: build state
+# Content moderation and in-app translation
 
-Working notes for the content spam shield and the in-app translation layer.
-Nothing here is committed.
+Working notes for the fork's spam shield and translation layer. Design, what came from
+upstream, verification, and what is deliberately deferred.
 
-## What is implemented
+## One gate, two cooperating engines
 
-### Content spam shield (`app/src/main/java/com/bitchat/android/spam/`)
-- `SpamShield.kt` — pure, Android-free scorer. Signals: muted sender, blocked
-  phrase, exact repeat, cross-sender repeat, sender burst, channel flood, char
-  run, link flood, scam phrase, forwarded chain, weak/absent proof-of-work, low
-  reputation. Text is normalised first (zero-width and combining marks stripped,
-  whitespace collapsed, newlines kept so `Fwd:` markers survive).
-- `SpamShieldPreferences.kt` — persisted settings: enabled, sensitivity,
-  auto-mute minutes, flag-visible, require proof-of-work, blocked phrases,
-  persisted mutes. All writes use `apply()`; settings survive restart.
-- `SpamShieldService.kt` — process-wide gate. Verdicts are memoised by message
-  id, hidden messages live in a memory-only ledger, plus reveal / reveal-scope /
-  mute / reset.
-- Gate placement: `AppStateStore.addPublicMessage` and `addChannelMessage`
-  admit through `SpamShieldService.admit`, so mesh, BLE, Wi-Fi Aware, hotspot
-  and Nostr/`geo:<hash>` channels are all covered. `IncomingMessageAdmission`
-  is the authoritative gate for side effects: a hidden message produces no UI
-  delegate, notification, haptics, unread count, or persistence.
-- The engine fails open: if the shield throws, the message is admitted. Losing
-  real traffic is worse than showing spam.
+Every public and channel message passes one admission point before it can reach a timeline,
+notify, haptic, badge, persist, or be delegated to UI. `IncomingMessageAdmission` is that point;
+`AppStateStore.addPublicMessage` / `addChannelMessage` repeat the check so relay and Nostr
+(geohash) paths are covered even when they land directly in state.
 
-### Tuning after on-device use
-Thresholds: Gentle 45/95, Balanced 30/55, Aggressive 20/40.
-- Rate signals are **never decisive**: sender burst needs 6+ lines in 30 s for
-  12 points, 10+ for 25; channel flood needs 15+ in 60 s for 15, 25+ for 25.
-  A lively channel keeps every message.
-- Repeat: first repeat 45, second 55. Two links in one message 30, three 35.
-  Scam phrases 30 each (cap 60), forwarded chain 30, char run 36, weak
-  proof-of-work in a location channel 22, cross-sender repeat 30+.
-- Reputation +2 per spam hit, decays hourly, so one false positive never becomes
-  permanent.
-- **Auto-mute is second-strike only** (`applyAutoMute`): the first content hide
-  counts, a mute lands on the second content-signal hide, and rate/reputation
-  hides never mute. An auto-mute never extends an existing mute. Default is
-  `Never`; the chip row offers Never/10/30/60 min/3 h.
-  Rationale: a first-strike 30-minute mute silenced a dozen chatty participants
-  in a live geohash channel, and every renewed mute made that silence permanent.
+Order inside the gate:
 
-### Auto translation (`app/src/main/java/com/bitchat/android/translate/`)
-- `TranslationEngine.kt` — ML Kit on-device engine (`com.google.mlkit:translate:17.0.3`)
-  and a self-hosted LibreTranslate engine; requests route through
-  `OkHttpProvider`, so Tor is inherited. Online mode requires https.
-- `LanguageProbe.kt` — local script/word detector, no network, no text leaves the
-  phone.
-- `TranslationPreferences.kt` — enabled, engine mode, target language, display
-  mode, private-chat permission, endpoint, **per-conversation target and per-conversation
-  source language**, all `.apply()`-persisted.
-- `TranslationStore.kt` — in-memory cache keyed by message id (LRU 400).
-  - **Handles are kept out of the engine.** Mentions (`@nick`, `@nick#id`) are
-    lifted from the text, the sentence is translated, and the handles are
-    re-attached in front. ML Kit was mangling handles (`@ntm` returned as a
-    vulgar word, a peer id fragment as a translated noun), which corrupted
-    nicknames on screen.
-  - Requests run **one at a time** (`limitedParallelism(1)`) with a 45 s timeout,
-    because Google Play model downloads stall when several language pairs are
-    requested at once. A stalled pair fails and releases the queue; failures are
-    logged with the language pair, since a failed translation is invisible in the
-    UI.
-  - Encrypted payloads, non-text rows, blank content, and private chats (unless
-    explicitly allowed) never reach an engine. Same-language pairs are skipped.
-  - Nothing translated is written to disk.
+1. **Upstream `SpamFilter`** (merged, release toggle in About): per-sender token budget,
+   characters per minute, links per minute, similarity against a sender's own history,
+   similarity across senders, long character runs. Its verdicts (`MESSAGE_RATE`,
+   `CHARACTER_RATE`, `LINK_RATE`, `REPEATED_MESSAGE`, `REPEATED_ACROSS_USERS`,
+   `REPEATED_CHARACTERS`) are recorded into the fork ledger so they are counted, reviewable,
+   translatable, and actionable. Upstream ships no ledger, so a silent hide is invisible.
+2. **Fork content rules** (`SpamShield`): scam phrases, forward-chain markers, user-supplied
+   blocked phrases, shout flood (a single shouted token pasted repeatedly, counted per minute),
+   long character runs, proof-of-work, sender reputation with decay, muted senders.
+   Verdict type is `ShieldVerdict` (renamed to avoid the `SpamVerdict` collision from upstream).
 
-### UI
-- `ModerationBar.kt` — status row under the header: hidden-spam count as a
-  review action, translation target as info.
-- `SpamReviewSheet.kt` — hidden messages with sender, time, signal labels,
-  preview, Reveal / Reveal channel / Mute 30 min / Block phrase.
-- `ModerationSettings.kt` — spam section (toggle, sensitivity, auto-mute,
-  flag-visible, proof-of-work, blocked phrases, review) and translation section
-  (engine, display mode, target, per-channel target, per-channel source language,
-  private permission, endpoint). Privacy notes for model downloads and for the
-  online endpoint are in the section, not in strings alone.
-- `ChatScreen.kt` / `MessageComponents.kt` / `ChatState.kt` /
-  `ChatViewModel.kt` / `AboutSheet.kt` / `BitchatApplication.kt` — plumbing,
-  display modes (original / under / replace), flag marker, sheet visibility, and
-  panic-clear resetting both stores.
-- `wear/build.gradle.kts` — `com/bitchat/android/spam/**` added to
-  `sharedSourceIncludes`, because `AppStateStore.kt` is shared and imports the
-  gate. Wear has no settings UI, so the gate stays inert there (defaults Off).
+Duplicated rules the upstream engine does better were removed from `SpamShield`: exact-similarity
+repeat, cross-sender similarity, sender burst. Labels stayed the same, now fed by upstream.
+Scoring is additive with per-mode thresholds (Gentle 45/95, Balanced 30/55, Aggressive 20/40),
+and rate signals alone are never decisive: a single shouted word flags, it does not hide.
+Auto-mute is second-strike, content-only, never extends itself, default off.
 
-## On-device validation (debug build, emulator, geohash channel)
-- Per-channel source language set to the channel's language: coverage went from
-  ~20% of messages to essentially all, including short chat lines. Detection
-  defaults to `en` for Latin text with no hint words, which is why short French
-  lines were being fed to the model as English.
-- Handles render verbatim next to the translation.
-- No muted-sender cascade, no flags on ordinary chatter.
-- Settings round-trip through SharedPreferences, verified with `run-as`.
-- The moderation bar, the review sheet, sensitivity chips, auto-mute chips,
-  flag-visible, proof-of-work, blocked-phrase editor, engine/display/target
-  chips, the per-channel source row, the private toggle, and the endpoint note
-  all render and are tappable.
-- No `TranslationStore` failures in a 20 s logcat window while a channel was
-  active.
+## Surfaces the fork adds
 
-## Tests
-- `SpamShieldTest`, `SpamShieldPreferencesTest`, `SpamShieldServiceTest`,
-  `LanguageProbeTest`, `TranslationPreferencesTest`, `TranslationStoreTest`.
-  71 tests, all passing. Tests use synthetic content only; completion is driven
-  by observed state, not sleeps.
-- Full `:app:testDebugUnitTest`: 764 tests, 24 failed, 3 skipped. The 24 are the
-  known baseline families — `ConversationDatabaseTest` (9, Robolectric native
-  SQLite `SQLITE_CANTOPEN` on Windows), `MediaSendingManagerMigrationTest` (6),
-  `IncomingMessageAdmissionTest` (6), `ConversationRepositoryTest` (2),
-  `NostrDirectMessageHandlerTest` (1). They reproduce on a clean tree
-  (`git stash push -u`) and are private-persistence/DB tests; the private
-  admission path is untouched by this work. **No spam or translation test fails.**
-- `:app:assembleDebug`, `:wear:assembleDebug`, `:wear:testDebugUnitTest`,
-  `:app:lintDebug` all pass. Adding the ML Kit dependency required
-  `--write-locks --write-verification-metadata sha256` (strict dependency
-  locking), which updated `app/gradle.lockfile` and
-  `gradle/verification-metadata.xml`.
+- **Count + review sheet.** Hidden messages live in memory only, newest first: sender, time,
+  signals, text. `hiddenCount` is a cumulative per-run counter, not the ledger size, so a
+  flood that continues stays visible past the ledger cap.
+- **Actions:** Reveal, Reveal channel, Restore trust, Mark as spammer, Mute, Block word
+  (the repeated token), Block phrase. Restore trust clears mute, reputation, strikes and the
+  sender's observations, then replays their hidden messages; it is not a whitelist — a scam
+  text from the same sender is hidden again by the same rules.
+- **Translations for hidden text**, same consent and engine as the chat, capped per scope.
+- **Long-press menu**: Mark as spammer / Restore to default trust, next to Block.
+- **Mention handles lifted out of translated text** (`@nick`, `@nick#id` never reach a model,
+  restored verbatim).
+- **Per-channel target and source language.** Source per channel (Auto / explicit). Short chat
+  lines defeat word-based detection, so explicit source is the reliable setting for known
+  language channels. Geohash nesting: a coarse setting applies inside, a finer channel overrides.
+- **Display modes** below / replace, plus status lines (`Translating…`, `No translation: reason`).
 
-## Non-ASCII source is written as escapes
+## Translation engine
 
-An encoding pass of mine damaged `strings.xml` (bullets, ellipses, emoji, the composer hint rendered as
-deformed text) and Cyrillic literals in `SpamShield.kt`, `LanguageProbe.kt`, and `LanguageProbeTest.kt`.
-`strings.xml` was restored from the clean commit, and every non-ASCII literal in this feature is now
-written as `\uXXXX` escapes so the sources stay plain ASCII and cannot be damaged by encoding
-conversion. Verified: `strings.xml` has its 38 bullets and 16 ellipses back, the composer hint renders
-as `Type a message…`, all files in `spam/`, `translate/`, `ui/Moderation*`, `ui/SpamReviewSheet.kt` and
-`app/src/debug/.../testhook` are ASCII-only, and the Slavic disambiguation test covers ru, uk, sr, bg, be
-(и is shared by Ukrainian and Belarusian, so it is not a Ukrainian-only mark).
+- **On-device ML Kit** (default): text processed on the phone. Google Play downloads language
+  packs (~30 MB per pair) over Wi-Fi; the download reveals the language pair, never the text.
+- **Self-hosted LibreTranslate**: text goes to an endpoint the user configures, https only,
+  routed through Tor when Tor mode is on. Nothing is sent until the endpoint is set.
+- Requests are serialised (one at a time) with a 45 s timeout, batched to the newest messages,
+  capped per scope. Private text is never sent unless explicitly allowed; encrypted, media,
+  system, blank and non-language shapes are never sent. Cache is keyed by message id + target
+  language, LRU, never persisted.
+- Language probe is local: Unicode script ranges, Slavic letter marks, Latin frequency hints.
+  Unclassifiable text is sent for translation rather than assumed to be English.
 
-## Reading hidden spam, and sender-level judgement
-- **The review sheet translates.** Hidden messages never reach the chat list, so nothing else asks for
-  their translations; the sheet requests them for its own scope, per channel, behind the same consent
-  as the chat (private text never sent, nothing persisted). On device a hidden French line read
-  "There is no admin here to help you …" under the label "In your language".
-- **Restore trust** (review sheet, per sender): mute, reputation, second-strike counts and repeat
-  observations go to zero, and the sender's hidden messages are replayed into the timeline. Content
-  rules, thresholds, sensitivity and block phrases are untouched, so their next spam is judged by the
-  same rules. Verified on device: restoring a test sender dropped their ledger rows and their next
-  ordinary line was admitted; a unit test asserts the same scam text is still hidden afterwards.
-- **Mark as spammer** (message long-press menu, next to Block): explicit user judgement. Mutes the
-  sender for an hour, extends an existing mute (manual mutes are deliberate, auto-mutes never renew),
-  and adds reputation. Shown only when the shield is on.
-- Five review actions do not fit one row on a phone, so the action row is a `FlowRow` and wraps.
-- Debug-only hook `inject_msg` in `app/src/debug/.../TestHookDriver.kt` puts a synthetic message
-  through the real admission path (`IncomingMessageAdmission`), so content moderation is observable on
-  an emulator with no radios. It broadcasts nothing and touches no peer. Never shipped in release.
+## Privacy boundaries
 
-## Flood shapes the content rules could not see
+- Scoring is on-device. Nothing about messages, senders, channels, scores, reputation, mutes,
+  or block phrases is transmitted. Persisted state is settings, block phrases and the mute list
+  in the app's private preferences.
+- Translations are not stored. On-device mode reveals the language pair to Google Play. Online
+  mode reveals message text to the user's own endpoint.
+- The shield **fails open**: if scoring throws, the message is admitted.
+- `app/src/debug/.../TestHookDriver.kt` has an `inject_msg` hook that pushes synthetic messages
+  through the real admission path. Debug source set only, broadcasts nothing, never in release.
 
-A live geohash channel was flooded with one word pasted many times per message, several accounts,
-with proof of work on most messages (3b-6b). The content rules admitted it: exact-repeat and
-cross-sender repeat compare whole messages, the flood was posted as many messages with the same word
-rotating, `CharRun` only catches repeated single characters, and proof-of-work scoring is off unless
-the reader opts in. Two shape signals close that gap, both deliberately shape-based so rotating the
-word does not escape:
+## Deferred to the next upstream release tag
 
-- `RepetitiveContent` - the same token repeated inside one message (`>=4` times), or the same line
-  repeated (`>=3` lines). A wall pasted as one message.
-- `ShoutFlood` - one shouted token per message (single all-caps word, letters, no spaces). The
-  signal counts how many messages in the last minute were one shouted token, so a rotating-word
-  flood is caught by its shape. A lone shout is scored `+10`, never decisive: `ok` and ordinary chat
-  stay clear. Both are in the content set for the second-strike auto-mute.
+Upstream `main` is post-release development code, and these parts are unfinished:
+- spam filter tuning UI, debug bypass, tuning knobs (debug-only),
+- PoW requirement as a gate,
+- locale strings for the new UI (English only today),
+- Wear settings UI (the shield is inert on the watch),
+- baseline test failures: `ConversationDatabaseTest` (Robolectric native SQLite,
+  `SQLITE_CANTOPEN` on Windows), `MediaSendingManagerMigrationTest`,
+  `IncomingMessageAdmissionTest`, `ConversationRepositoryTest`,
+  `NostrDirectMessageHandlerTest`. These reproduce on a clean tree; no spam/translation
+  test fails in any run.
+- Mesh Lab on two physical devices for BLE, Wi-Fi Aware and hotspot transports. Emulators have
+  no radios, so only Nostr/relay-sourced channels, UI, settings and persistence are exercised.
 
-Verified on device with injected synthetic flood: eight rotating shouts, first seven admitted with
-markers, the eighth hidden (`sender burst` + `shouty flood` + `poor sender history`); a 24-token word
-wall hidden with `repeated text`. Thresholds stay `30/55` Balanced, `20/40` Aggressive.
+## Verification
 
-`Block word` in the review sheet: a message with a repeated token offers that token as a one-tap
-block, because blocking the whole message text is not what a reader wants for a wall of one word.
+- Emulator (debug build, geohash channels, no radios): settings round-trip through
+  SharedPreferences; moderation bar, review sheet, settings sections, long-press actions render
+  and are tappable; French channels translate with explicit source; hidden messages translate in
+  the sheet; injected floods (rotating shouted tokens, word walls, French scam sentences) are
+  hidden and counted; restored senders post normally again.
+- Test suites: spam + translation suites green; full `:app:testDebugUnitTest` shows only the
+  baseline families listed above.
+- `:app:assembleDebug`, `:wear:assembleDebug`, `:wear:testDebugUnitTest`, `:app:lintDebug` pass.
+- Sources for this feature are ASCII-only: Cyrillic, accents, bullets and ellipses are written as
+  `\u` escapes, because encoding passes destroyed literal characters (which silently disabled
+  Cyrillic scam-phrase matching and Slavic detection). `strings.xml` typography uses entities.
 
-## Hidden counts keep counting
+## Commits
 
-The review list is capped (150 entries), so a count taken from that list stops growing during a
-flood and reads as if the shield went quiet. `SpamShieldService.hiddenCount` is a cumulative counter
-per app instance, shown in the moderation bar, the settings row, and the sheet header.
-
-## Translation is capped so spam cannot flood the queue
-
-Translating hidden spam spends model downloads and a serial engine queue on text a reader will never
-read. The review sheet now skips messages that are not language (link dumps, character runs,
-repeated walls, shout floods), caps requests at 25 per scope, and shows why a translation did not
-happen (`Translating…`, `No translation: <reason>`) instead of silently rendering nothing.
-Per-channel source language follows geohash nesting: a language set for a coarse area applies inside
-it, and a finer channel can override it. Short lines the probe cannot classify are sent for
-translation instead of being assumed English, which is what made the first coverage attempt work on
-only a fraction of a French channel.
-
-## Still open
-- Mesh Lab validation on physical devices for the gate's transport coverage
-  (BLE, Wi-Fi Aware, hotspot) — the emulator has no radios.
-- Locale translations for the new strings (English only today).
-- Wear settings UI, if the watch should use the shield.
-- Baseline Robolectric/SQLite failures: worth a separate investigation.
-- Nothing committed. Delete any scratch scripts outside the repo before a commit.
+Fork `main`: `ae11b9d9` feature, `e8e441b1` word walls + shout flood + cumulative count +
+capped hidden translation, `15a1abbd` string repair + ASCII-safe literals, `a3b9acee` neutral
+test tokens, `1930f0a3` ignore Gradle daemon file, `fe559413` merge of 13 upstream commits,
+`b01720ef` `ShieldVerdict` rename, `9e0faf7e` upstream verdicts recorded into the fork ledger.

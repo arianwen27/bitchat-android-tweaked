@@ -45,53 +45,68 @@ This project is released into the public domain. See the [LICENSE](LICENSE.md) f
 - **Content Spam Shield**: opt-in, on-device content scoring for public and location channels. Repeats, floods, link spam, forwarded chains, scam phrasing and blocked phrases are scored locally; hidden messages never reach the timeline, notifications, history, or storage, and every hide is reviewable and revealable.
 - **In-App Auto Translation**: translated text under the original in any channel, on-device via ML Kit by default, with a self-hosted LibreTranslate endpoint as an option. Per-channel target and source language, and translation of hidden spam for review.
 
-## Fork additions
+## Fork additions: content moderation and in-app translation
 
-This fork adds two client-side features for global and location channels, where spam is the main problem and proof-of-work is widely ignored. Both are opt-in, off by default, and change no protocol, packet format, or PoW requirement, so mesh and Nostr interoperability is unchanged.
+Two opt-in features on top of the upstream client. Neither changes the packet format, transport,
+identity, PoW requirement, or any protocol behaviour. Both are off by default and both are
+local-first.
 
-**Content spam shield** (`app/src/main/java/com/bitchat/android/spam/`)
-- Scores message **content** on the device: exact repeats, copies relayed by several senders, sender bursts, channel floods, character runs, link floods, scam phrasing, forwarded chains, weak or missing proof-of-work, blocked phrases, and a sender reputation that decays hourly.
-- Four sensitivities: Off, Gentle, Balanced (default), Aggressive. Flag-visible mode shows a warning label below the hide threshold; only past the hide threshold is a message suppressed.
-- Hidden messages are not stored: they never reach the timeline, unread counts, haptics, notifications, persistence, or delivery bookkeeping. The review sheet lists them for the current app run only, with the reason, and actions Reveal, Reveal channel, Restore trust, Mute 30 min, Block phrase.
-- Auto-mute is second-strike and applies only to content signals, never to rate or reputation, and never extends an existing mute. Off by default.
-- **Restore trust** returns a sender to default points (mute, reputation, repeat history cleared) and replays their hidden messages. It is not a whitelist: the same rules judge their next message.
-- **Mark as spammer** in the message long-press menu mutes a sender for an hour with an explicit, deliberate judgement.
-- Private chats, encrypted payloads, media, voice, and system messages are never read, scored, muted, or sent to a model.
-- The engine fails open: if scoring throws, the message is admitted, because losing real messages is worse than showing spam.
-- On-device only. No message content, sender, fingerprint, score, reputation, blocklist, or mute is transmitted, and no content is written to disk.
+### Content Spam Shield
 
-**In-app auto translation** (`app/src/main/java/com/bitchat/android/translate/`)
-- Translated text below (or replacing) the original in channel, global, location, private and mesh chats. Per-conversation target **and** source language: in a French location channel, set the source to French so short chat lines are not mis-detected as English.
-- On-device engine uses ML Kit Translation. Google Play fetches language packs over Wi-Fi (about 30 MB per pair); a model download reveals which language pair is fetched, never the message text.
-- Online engine sends message text to a **self-hosted LibreTranslate** endpoint you configure. It is refused unless the URL is `https` and the host is not a clear-text local name, and requests inherit the app Tor routing when Tor is on.
-- Translation results are cached in memory keyed by message id, capped at 400 records, and are never written to disk.
-- Mentions such as `@nick` and `@nick#id` are lifted out of the text, the sentence is translated, and the handles are re-attached verbatim, so peer ids are never fed to a model.
-- Private text is translated only when you explicitly enable it.
-- No word list, phrase, sender, geohash, or translation is uploaded for detection. Language detection uses Unicode script ranges plus a small set of high-frequency chat words, and a language label is not location.
+Every public and channel message passes one admission point before it can reach a timeline, notify,
+badge, persist, or reach the UI. Two engines run in order at that point:
 
-Full notes on behaviour, privacy boundaries, verification and open work: [docs/moderation-translation-notes.md](docs/moderation-translation-notes.md).
+1. **Upstream rate and repetition filter** - per-sender token budget, characters per minute, links
+   per minute, similarity against a sender's own history, similarity across senders, and long
+   character runs.
+2. **Fork content rules** - scam phrases, forward-chain markers, your own blocked phrases, shout
+   floods (a single shouted word pasted repeatedly, counted per minute), long character runs,
+   proof-of-work, and sender reputation that decays hourly.
 
+The fork adds what upstream does not provide:
 
-### Bluetooth Mesh Network (Offline)
+- **A visible count and a review sheet.** Hidden messages are kept in memory only, newest first,
+  with sender, time, the signals that hid them, and the text. The count is per app run, so a
+  continuing flood stays visible.
+- **Actions**: Reveal, Reveal channel, Restore trust, Mark as spammer, Mute, Block word,
+  Block phrase. Restore trust returns a sender to default reputation, clears their mute and
+  strikes, and replays their hidden messages. It is not a whitelist: the same rules apply to
+  their next message.
+- **Translations for hidden text**, so a hidden message in a foreign language can be read.
+- **Second-strike auto-mute**, off by default, applied only to content signals. Rate and
+  reputation alone never mute anyone, and auto-mutes never extend themselves.
+- **Long-press actions** Mark as spammer and Restore to default trust, next to Block.
+- **Mention handles** (`@nick`, `@nick#id`) are lifted out of translated text and restored
+  verbatim, so handles never reach a translation model.
 
-- Direct peer-to-peer within Bluetooth range, multi-hop relay through nearby devices
-- Noise Protocol sessions with forward secrecy; peer identities derived from static keys
-- Compact binary packet format with fragmentation, TTL routing, and deduplication
-- Adaptive duty cycling and connection limits for battery efficiency
-- Foreground service keeps the mesh alive within Android background execution limits
+The shield **fails open**: if scoring throws, the message is admitted. Losing real messages is
+worse than showing spam. Scoring happens on the device; nothing about a message, sender, channel,
+score, reputation, mute, or block phrase is transmitted.
 
-### Nostr Protocol (Internet)
+### In-App Auto Translation
 
-- Global reach via public relays, geohash-based location channels
-- Private messages fall back to Nostr for mutual favorites when the mesh is unavailable
-- Ephemeral keys per geohash area
+- **On-device** (ML Kit, default): text is processed on the phone. Google Play downloads language
+  packs (~30 MB per pair) over Wi-Fi. The download reveals the language pair, never the text.
+- **Self-hosted**: text is sent to an endpoint you configure, over https, routed through Tor when
+  Tor mode is on. Nothing is sent until you set an endpoint.
+- **Per-channel target and source language.** Source can be Auto or explicit. Short chat lines
+  defeat word-based detection, so set an explicit source for known-language channels. A coarse
+  geohash setting applies inside it; a finer channel overrides.
+- **Display** below the original, or replacing it. Translations are cached in memory keyed by
+  message id and target language, never persisted.
+- **Private chat is not translated** unless you explicitly allow it. Encrypted, media, system,
+  blank, and non-language shapes (word walls, shout floods, link dumps) are never sent. Requests
+  are serialised with a timeout and capped per batch and per scope.
+- **Rows report status** (`Translating...`, `No translation: reason`) so a stalled model download
+  is distinguishable from a skipped message.
 
-### Android Stack
+### Limits
 
-- Kotlin, Jetpack Compose (Material 3), MVVM
-- Coroutines and Flow for all networking and state
-- Core components: `MeshForegroundService` (persistent connectivity), `BluetoothMeshService` / `WifiAwareMeshService` (transports), `UnifiedMeshService` (transport selection), `NoiseSessionManager` (encryption sessions), `MessageRouter` (mesh/Nostr routing with outbox retry)
-
+- Emulators cannot exercise BLE, Wi-Fi Aware, or hotspot transports. Mesh transport coverage
+  requires two physical devices, per the Mesh Lab runbook.
+- PoW is a cost, not a content rule: requiring proof raises a spammer's cost, it does not block
+  content. It is used as one signal among several.
+- UI strings are English only. The shield is inert on the watch until Wear exposes settings.
 ## Building
 
 Requires Android Studio and the Android SDK (API 26+).
