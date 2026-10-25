@@ -48,16 +48,18 @@ class SpamShieldServiceTest {
     }
 
     @Test
-    fun aSecondCopyOfTheSameTextFromTheSameSenderIsHidden() {
-        val first = publicMessage("id-a", "alice", "free airdrop claim your tokens today")
-        val second = publicMessage("id-b", "alice", "free airdrop claim your tokens today")
+    fun aWordWallIsHiddenAndRecordedInTheLedger() {
+        val first = publicMessage("id-a", "alice", "a plain sentence about the mesh")
+        // A word pasted inside one message is the shape a flood takes when it is posted as a single
+        // line, so it is scored by repetition and by the scam phrase, not by comparison with history.
+        val wall = publicMessage("id-b", "alice", "free airdrop sale sale sale sale sale sale")
 
-        val firstVerdict = SpamShieldService.admit(first, "me")
-        assertTrue(firstVerdict)
-        assertFalse(SpamShieldService.admit(second, "me"))
+        assertTrue(SpamShieldService.admit(first, "me"))
+        assertFalse(SpamShieldService.admit(wall, "me"))
 
         assertEquals(1, SpamShieldService.hidden.value.size)
         assertEquals("id-b", SpamShieldService.hidden.value.first().message.id)
+        assertTrue(SpamShieldService.hidden.value.first().signals.contains(SpamSignal.RepetitiveContent))
     }
 
     @Test
@@ -102,38 +104,34 @@ class SpamShieldServiceTest {
 
     @Test
     fun aRevealedMessageIsAdmittedAgainAndRemovedFromTheLedger() {
-        val text = "ping for the relay"
-        SpamShieldService.admit(publicMessage("rev-1", "alice", text), "me")
-        SpamShieldService.admit(publicMessage("rev-2", "alice", text), "me")
-        SpamShieldService.admit(publicMessage("rev-3", "alice", text), "me")
+        val scam = "send 1 get 2 guaranteed profit"
+        assertTrue(SpamShieldService.admit(publicMessage("rev-1", "alice", "hello from alice"), "me"))
+        assertFalse(SpamShieldService.admit(publicMessage("rev-2", "alice", scam), "me"))
         assertEquals(1, SpamShieldService.hidden.value.size)
 
-        val revealed = SpamShieldService.reveal("rev-3")
+        val revealed = SpamShieldService.reveal("rev-2")
         assertNotNull(revealed)
         assertEquals(0, SpamShieldService.hidden.value.size)
         assertTrue(SpamShieldService.admit(revealed!!, "me"))
-        // Revealing one message does not whitelist the sender, so a fresh copy is hidden again.
-        assertFalse(SpamShieldService.admit(publicMessage("rev-4", "alice", text), "me"))
+        // Revealing one message does not whitelist the sender, so the scam text is hidden again.
+        assertFalse(SpamShieldService.admit(publicMessage("rev-3", "alice", scam), "me"))
     }
 
     @Test
     fun revealingAScopeClearsThatScopeOnly() {
-        val text = "check the new channel"
-        SpamShieldService.admit(publicMessage("scope-1", "alice", text), "me")
-        SpamShieldService.admit(publicMessage("scope-2", "alice", text), "me")
-        SpamShieldService.admit(publicMessage("scope-3", "alice", text), "me")
-        SpamShieldService.admit(geoMessage("scope-4", "bob", text), "me")
-        SpamShieldService.admit(geoMessage("scope-5", "bob", text), "me")
-        SpamShieldService.admit(geoMessage("scope-6", "bob", text), "me")
+        val scam = "send 1 get 2 guaranteed profit"
+        repeat(3) { index -> SpamShieldService.admit(publicMessage("scope-$index", "alice", scam), "me") }
+        repeat(3) { index -> SpamShieldService.admit(geoMessage("scope-geo-$index", "bob", scam), "me") }
 
         val meshHidden = SpamShieldService.hidden.value.count { it.scopeKey == "mesh" }
         val geoHidden = SpamShieldService.hidden.value.count { it.scopeKey == "geo:synthetic" }
-        assertEquals(2, meshHidden + geoHidden)
+        assertEquals(3, meshHidden)
+        assertEquals(3, geoHidden)
 
         val revealed = SpamShieldService.revealScope("geo:synthetic")
-        assertEquals(geoHidden, revealed.size)
+        assertEquals(3, revealed.size)
         assertEquals(0, SpamShieldService.hidden.value.count { it.scopeKey == "geo:synthetic" })
-        assertEquals(1, SpamShieldService.hidden.value.count { it.scopeKey == "mesh" })
+        assertEquals(3, SpamShieldService.hidden.value.count { it.scopeKey == "mesh" })
     }
 
     @Test
@@ -154,10 +152,8 @@ class SpamShieldServiceTest {
     @Test
     fun panicResetClearsLedgerMutesAndFlags() {
         SpamShieldService.muteSender("alice", "alice", 30)
-        val text = "hello there"
-        SpamShieldService.admit(publicMessage("reset-1", "bob", text), "me")
-        SpamShieldService.admit(publicMessage("reset-2", "bob", text), "me")
-        SpamShieldService.admit(publicMessage("reset-3", "bob", text), "me")
+        val scam = "send 1 get 2 guaranteed profit"
+        repeat(3) { index -> SpamShieldService.admit(publicMessage("reset-$index", "bob", scam), "me") }
         assertTrue(SpamShieldService.hidden.value.isNotEmpty())
 
         SpamShieldService.reset()
@@ -165,7 +161,7 @@ class SpamShieldServiceTest {
         assertTrue(SpamShieldService.hidden.value.isEmpty())
         assertTrue(SpamShieldService.flaggedIds.value.isEmpty())
         // The mute is gone with the ledger, so a sender the user never blocked is readable again.
-        assertTrue(SpamShieldService.admit(publicMessage("reset-4", "alice", "hello again"), "me"))
+        assertTrue(SpamShieldService.admit(publicMessage("reset-end", "alice", "hello again"), "me"))
     }
 
     @Test

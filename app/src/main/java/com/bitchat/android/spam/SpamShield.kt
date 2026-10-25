@@ -97,7 +97,6 @@ class SpamShield {
 
     private companion object {
         const val OBSERVATION_WINDOW_MS = 600_000L // 10 minutes of repeat memory
-        const val BURST_WINDOW_MS = 30_000L
         const val FLOOD_WINDOW_MS = 60_000L
         const val MAX_OBSERVATIONS_PER_SCOPE = 300
         const val MAX_SCOPES = 64
@@ -105,7 +104,6 @@ class SpamShield {
         const val CONTENT_KEY_MAX_CHARS = 400
         const val SCORE_MUTE = 100
         const val MAX_SCAM_SCORE = 60
-        const val MAX_CROSS_SENDER_SCORE = 60
 
         /** Phrases that repeatedly appear in coordinated flood spam, in several scripts. */
                 val SCAM_PHRASES = listOf(
@@ -204,51 +202,12 @@ class SpamShield {
             score += 60
         }
 
-        val repeats = prior.filter { it.contentKey == normalized }
-        when {
-            repeats.size >= 2 -> {
-                signals += SpamSignal.ExactRepeat
-                score += 55
-            }
-            repeats.size == 1 -> {
-                signals += SpamSignal.ExactRepeat
-                score += 45
-            }
-        }
-        val distinctRepeatSenders = repeats.map(Observation::senderLabel).toSet()
-            .filter { it != senderLabel }
-            .size
-        if (distinctRepeatSenders >= 1) {
-            signals += SpamSignal.CrossSenderRepeat
-            score += (30 + 10 * (distinctRepeatSenders - 1)).coerceAtMost(MAX_CROSS_SENDER_SCORE)
-        }
+        // Rate limits, exact repeat, cross-sender copy, channel load, character runs and link
+        // floods are handled by the upstream filter, which runs first in the gate. Scoring them
+        // here as well measured the same messages twice, so only the shape rules stay:
+        // in-message repetition, shout floods, scam phrases, forward chains, PoW and reputation.
 
-        // Rate alone is never decisive: a lively channel posts four lines in half a minute, so the
-        // burst signal only contributes, and only at a rate no real conversation sustains.
-        val senderBurst = prior.count {
-            it.senderLabel == senderLabel && it.timestampMs >= candidate.timestampMs - BURST_WINDOW_MS
-        }
-        if (senderBurst >= 10) {
-            signals += SpamSignal.SenderBurst
-            score += 25
-        } else if (senderBurst >= 6) {
-            signals += SpamSignal.SenderBurst
-            score += 12
-        }
 
-        val channelLoad = prior.count { it.timestampMs >= candidate.timestampMs - FLOOD_WINDOW_MS }
-        if (channelLoad >= 25) {
-            signals += SpamSignal.ChannelFlood
-            score += 25
-        } else if (channelLoad >= 15) {
-            signals += SpamSignal.ChannelFlood
-            score += 15
-        }
-
-        if (longestRun(normalized) >= 12) {
-            signals += SpamSignal.CharRun
-            score += 15
-        }
 
         // In-message repetition: the shape of a flood posted as one message, e.g. one word pasted
         // five times, or the same line pasted thirty times. Content matching finds nothing here,
@@ -293,19 +252,6 @@ class SpamShield {
             score += 10
         }
 
-        val urlCount = countUrls(normalized)
-        if (urlCount >= 3) {
-            signals += SpamSignal.LinkFlood
-            score += 35
-        } else if (urlCount >= 2) {
-            // Two links in one message is the shape a spam bot posts; a person pasting a link pair
-            // gets a visible marker, not a hidden message.
-            signals += SpamSignal.LinkFlood
-            score += 30
-        } else if (urlCount == 1 && urlChars(normalized) * 2 > normalized.length) {
-            signals += SpamSignal.LinkFlood
-            score += 12
-        }
 
         val scamHits = SCAM_PHRASES.count { normalized.contains(it) }
         if (scamHits > 0) {
@@ -518,10 +464,7 @@ class SpamShield {
     private val decisiveForMute = setOf(
         SpamSignal.BlockedPhrase,
         SpamSignal.ScamPhrase,
-        SpamSignal.ExactRepeat,
-        SpamSignal.CrossSenderRepeat,
         SpamSignal.ForwardChain,
-        SpamSignal.LinkFlood,
         SpamSignal.RepetitiveContent,
         SpamSignal.ShoutFlood
     )
@@ -581,22 +524,7 @@ class SpamShield {
         return counts.filterValues { it >= 3 }.keys.maxByOrNull { counts[it] ?: 0 } ?: ""
     }
 
-    private fun longestRun(text: String): Int {
-        var best = 1
-        var run = 1
-        for (index in 1 until text.length) {
-            run = if (text[index] == text[index - 1]) run + 1 else 1
-            if (run > best) best = run
-        }
-        return best
-    }
 
-    private fun countUrls(text: String): Int = urlMatches(text).size
-
-    private fun urlChars(text: String): Int = urlMatches(text).sumOf { it.length }
-
-    private fun urlMatches(text: String): List<String> =
-        URL_PATTERN.findAll(text).map { it.value }.toList()
 
     /**
      * Lowercase, strip zero-width and combining marks, and collapse whitespace runs.
