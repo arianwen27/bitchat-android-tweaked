@@ -95,6 +95,8 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.spam.SpamFilter
+import com.bitchat.android.spam.SpamVerdict
 import com.bitchat.android.ui.media.FileMessageItem
 import com.bitchat.android.ui.theme.BASE_FONT_SIZE
 import com.bitchat.android.ui.theme.BitchatMotion
@@ -264,6 +266,8 @@ fun MessagesList(
     // Collected once here so individual rows never subscribe to the preference flow; a mode
     // switch simply recomposes the list against the new layout.
     val bubbles by ChatUiModeManager.modeFlow.collectAsState()
+    // Spam let through by the debug bypass; empty unless that debug setting is on.
+    val spamFlags by SpamFilter.shared.flagged.collectAsState()
 
     // Collected once for the whole list: rows read the translation cache, the flagged set, and the
     // display mode from these snapshots, so a long channel never opens a subscription per row.
@@ -414,6 +418,7 @@ fun MessagesList(
                 translationRecords = translationRecords,
                 translationDisplay = translationDisplay,
                 flaggedIds = if (flagVisible) flaggedIds else emptySet(),
+                spamVerdict = spamFlags[message.id],
                 topSpacing = MessageGrouping.topSpacingFor(
 
                     isGrouped = isGrouped,
@@ -449,6 +454,8 @@ fun MessageItem(
     mentionPeerIdentities: Map<String, PeerIdentity> = emptyMap(),
     showSender: Boolean = true,
     bubbles: Boolean = false,
+    /** Set when the spam filter's debug bypass let this message through; tints the row red. */
+    spamVerdict: SpamVerdict? = null,
     topSpacing: Dp = 0.dp,
     translationTargetLang: String? = null,
     translationRecords: Map<String, TranslationRecord> = emptyMap(),
@@ -463,6 +470,13 @@ fun MessageItem(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val timeFormatter = remember { SimpleDateFormat(CHAT_TIMESTAMP_PATTERN, Locale.getDefault()) }
+    val spamModifier = if (spamVerdict != null) {
+        Modifier
+            .background(colorScheme.error.copy(alpha = 0.18f), RoundedCornerShape(8.dp))
+            .padding(horizontal = 6.dp, vertical = 4.dp)
+    } else {
+        Modifier
+    }
 
     // Translation is keyed by message id and tagged with the language it was produced for, so
     // switching a channel to a different target language never reuses stale text.
@@ -478,7 +492,8 @@ fun MessageItem(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = topSpacing),
+            .padding(top = topSpacing)
+            .then(spamModifier),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         if (flagged) {
@@ -570,7 +585,26 @@ fun MessageItem(
         
         // Link previews removed; links are now highlighted inline and clickable within the message text
 
+        if (spamVerdict != null) {
+            Text(
+                text = "spam filter would hide this: ${spamVerdict.debugLabel()}",
+                fontFamily = BitchatFontFamily,
+                fontSize = 11.sp,
+                color = colorScheme.error,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
     }
+}
+
+private fun SpamVerdict.debugLabel(): String = when (this) {
+    SpamVerdict.ALLOWED -> "allowed"
+    SpamVerdict.MESSAGE_RATE -> "too many messages"
+    SpamVerdict.CHARACTER_RATE -> "too many characters"
+    SpamVerdict.LINK_RATE -> "too many links"
+    SpamVerdict.REPEATED_MESSAGE -> "repeated message"
+    SpamVerdict.REPEATED_ACROSS_USERS -> "same text from other users"
+    SpamVerdict.REPEATED_CHARACTERS -> "repeated characters"
 }
 
 @OptIn(ExperimentalFoundationApi::class)

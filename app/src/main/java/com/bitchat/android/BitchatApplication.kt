@@ -45,6 +45,9 @@ class BitchatApplication : Application() {
             com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(this)
         } catch (_: Exception) { }
 
+        // Restore the spam filter toggle before transports start admitting public messages
+        com.bitchat.android.spam.SpamFilterPreferences.init(this)
+
         // Initialize the local spam shield and the translation cache before transports can deliver
         // anything, so the first messages of a session are scored against an initialised store.
         try { com.bitchat.android.spam.SpamShieldService.init(this) } catch (_: Exception) { }
