@@ -10,7 +10,7 @@
     <string name="permission_location_rationale">Location permission is required to discover nearby devices via Bluetooth.</string>
     <string name="permission_notification_rationale">Notification permission is required to alert you of new messages.</string>
     <string name="nickname_hint">Nickname</string>
-    <string name="message_hint">Type a messageÃ¢â‚¬Â¦</string>
+    <string name="message_hint">Type a message…</string>
     <string name="channel_password_hint">Password</string>
     <string name="join_channel">Join Channel</string>
     <string name="leave_channel">Leave</string>
@@ -36,7 +36,7 @@
     <string name="battery_optimization_not_supported_explanation">Your device doesn\'t require battery optimization settings. bitchat will run normally.</string>
     <string name="battery_optimization_not_supported_message">Your device doesn\'t require battery optimization settings. bitchat will run normally.</string>
     <string name="battery_optimization_success_message">bitchat can run reliably in the background</string>
-    <string name="battery_optimization_benefits">Ã¢â‚¬Â¢ Ensures reliable message delivery\nÃ¢â‚¬Â¢ Maintains mesh network connectivity\nÃ¢â‚¬Â¢ Allows background message relay\nÃ¢â‚¬Â¢ Prevents connection drops</string>
+    <string name="battery_optimization_benefits">• Ensures reliable message delivery\n• Maintains mesh network connectivity\n• Allows background message relay\n• Prevents connection drops</string>
     <string name="battery_optimization_check_again">Check Again</string>
     <string name="battery_optimization_skip">Skip for Now</string>
     <string name="battery_optimization_continue">Continue</string>
@@ -69,7 +69,7 @@
   <!-- Mesh Service Foreground Notification -->
   <string name="mesh_service_channel_name">Mesh Background Service</string>
   <string name="mesh_service_channel_desc">Keeps the Bluetooth mesh running in the background</string>
-    <string name="mesh_service_notification_content">Mesh running Ã¢â‚¬â€ %1$d peers</string>
+    <string name="mesh_service_notification_content">Mesh running — %1$d peers</string>
 
   <!-- Favorites accessibility -->
   <string name="cd_add_favorite">Add to favorites</string>
@@ -82,15 +82,15 @@
   <string name="cd_nostr_reachable">Nostr reachable</string>
   <string name="cd_unread_private_messages">Messages</string>
   <string name="conversations">Conversations</string>
-  <string name="offline_not_in_mesh">Offline Ã‚Â· not in mesh</string>
-  <string name="offline_reachable_via_nostr">Offline from mesh Ã‚Â· Nostr available</string>
+  <string name="offline_not_in_mesh">Offline · not in mesh</string>
+  <string name="offline_reachable_via_nostr">Offline from mesh · Nostr available</string>
   <string name="delete">Delete</string>
   <string name="delete_conversation_action">Delete conversation</string>
   <string name="delete_conversation_title">Delete conversation?</string>
   <string name="delete_conversation_message">Delete your conversation with %1$s from this device?</string>
   <string name="search_conversations">Search conversations</string>
   <string name="clear">Clear</string>
-  <string name="loading_conversations">Loading private conversationsÃ¢â‚¬Â¦</string>
+  <string name="loading_conversations">Loading private conversations…</string>
   <string name="conversation_storage_error">Private conversations could not be loaded</string>
   <string name="no_conversations_yet">Private conversations will appear here</string>
   <string name="no_conversation_results">No matching conversations</string>
@@ -107,7 +107,7 @@
   <string name="conversation_read">Read</string>
   <string name="conversation_draft_preview">Draft: %1$s</string>
   <string name="conversation_you_preview">You: %1$s</string>
-  <string name="conversation_preview_timestamp">Ã‚Â· %1$s</string>
+  <string name="conversation_preview_timestamp">· %1$s</string>
   <string name="conversation_delete_failed">Conversation could not be deleted</string>
   <string name="conversation_deleted">Deleted conversation with %1$s</string>
   <string name="undo">Undo</string>
@@ -137,12 +137,12 @@
   <string name="private_media_legacy_send_once" tools:ignore="MissingTranslation">Send this file once</string>
 
   <!-- File viewer dialog -->
-  <string name="file_viewer_title">Ã°Å¸â€œÅ½ File Received</string>
-  <string name="file_viewer_name">Ã°Å¸â€œâ€ž %1$s</string>
-  <string name="file_viewer_size">Ã°Å¸â€œÂ Size: %1$s</string>
-  <string name="file_viewer_type">Ã°Å¸ÂÂ·Ã¯Â¸Â Type: %1$s</string>
-  <string name="file_viewer_open_save">Ã°Å¸â€œâ€š Open / Save</string>
-  <string name="close_with_emoji">Ã¢ÂÅ’ Close</string>
+  <string name="file_viewer_title">📎 File Received</string>
+  <string name="file_viewer_name">📄 %1$s</string>
+  <string name="file_viewer_size">📏 Size: %1$s</string>
+  <string name="file_viewer_type">🏷️ Type: %1$s</string>
+  <string name="file_viewer_open_save">📂 Open / Save</string>
+  <string name="close_with_emoji">❌ Close</string>
   <string name="pick_image">Pick image</string>
   <string name="cd_save_current_image">Save current image</string>
   <string name="cd_close">Close</string>
@@ -183,7 +183,7 @@
   <!-- About sheet: settings labels -->
   <string name="about_tor_title">Tor Network</string>
   <string name="about_difficulty">Difficulty</string>
-  <string name="about_difficulty_value">%1$d bits Ã¢â‚¬Â¢ %2$s</string>
+  <string name="about_difficulty_value">%1$d bits • %2$s</string>
   <string name="about_tor_connected">Connected (%1$d%%)</string>
   <string name="about_tor_disconnected">Disconnected</string>
 
@@ -205,12 +205,12 @@
   <string name="about_pow_difficulty">Difficulty: %1$d bits (~%2$s)</string>
   <string name="about_pow_difficulty_attempts">Difficulty %1$d requires ~%2$s hash attempts</string>
   <string name="about_pow_desc_none">No proof of work required</string>
-  <string name="about_pow_desc_very_low">Very low Ã¢â‚¬â€œ minimal spam protection</string>
-  <string name="about_pow_desc_low">Low Ã¢â‚¬â€œ basic spam protection</string>
-  <string name="about_pow_desc_medium">Medium Ã¢â‚¬â€œ good spam protection</string>
-  <string name="about_pow_desc_high">High Ã¢â‚¬â€œ strong spam protection</string>
-  <string name="about_pow_desc_very_high">Very high Ã¢â‚¬â€œ may cause delays</string>
-  <string name="about_pow_desc_extreme">Extreme Ã¢â‚¬â€œ significant computation required</string>
+  <string name="about_pow_desc_very_low">Very low – minimal spam protection</string>
+  <string name="about_pow_desc_low">Low – basic spam protection</string>
+  <string name="about_pow_desc_medium">Medium – good spam protection</string>
+  <string name="about_pow_desc_high">High – strong spam protection</string>
+  <string name="about_pow_desc_very_high">Very high – may cause delays</string>
+  <string name="about_pow_desc_extreme">Extreme – significant computation required</string>
   <string name="about_network">Network</string>
   <string name="about_tor_off">Tor Off</string>
   <string name="about_tor_on">Tor On</string>
@@ -219,7 +219,7 @@
   <string name="about_last">Last: %1$s</string>
   <string name="about_emergency_title">Panic Mode</string>
   <string name="about_debug_settings">Debug Settings</string>
-  <string name="about_footer">Open Source Ã¢â‚¬Â¢ Privacy First Ã¢â‚¬Â¢ Decentralized</string>
+  <string name="about_footer">Open Source • Privacy First • Decentralized</string>
   <string name="close_plain">Close</string>
   <string name="cd_privacy_protected">Privacy Protected</string>
   <string name="cancel_lower">Cancel</string>
@@ -229,47 +229,47 @@
   <string name="share_bitchat_subtitle">Share installation file for offline distribution</string>
   <string name="share_apk_title">Share BitChat App</string>
   <string name="share_apk_explanation">This will share the BitChat installation file(s) so others can install the app without internet access. Perfect for mesh network expansion!</string>
-  <string name="share_apk_receiver_instructions">The receiver will need to:\nÃ¢â‚¬Â¢ Enable \"Install from unknown sources\" in Android settings\nÃ¢â‚¬Â¢ Uninstall BitChat first if already installed (signatures differ)</string>
+  <string name="share_apk_receiver_instructions">The receiver will need to:\n• Enable \"Install from unknown sources\" in Android settings\n• Uninstall BitChat first if already installed (signatures differ)</string>
   <string name="share_apk_confirm">Share App</string>
-  <string name="share_apk_chooser_title">Share BitChat viaÃ¢â‚¬Â¦</string>
+  <string name="share_apk_chooser_title">Share BitChat via…</string>
   <string name="share_apk_error">Failed to prepare app for sharing. Please try again.</string>
 
   <!-- Universal APK Preparation -->
   <string name="prepare_apk_title">Prepare App for Sharing</string>
   <string name="prepare_apk_ready_title">App Ready for Offline Sharing</string>
   <string name="prepare_apk_subtitle">Download universal APK for offline sharing</string>
-  <string name="prepare_apk_status_not_downloaded">Not ready Ã¢â‚¬Â¢ Tap to download</string>
+  <string name="prepare_apk_status_not_downloaded">Not ready • Tap to download</string>
   <string name="prepare_apk_status_ready">Ready to share</string>
   <!-- Assembled as one string so translators control separator and line order, not Kotlin. -->
-  <string name="prepare_apk_ready_detail">Ready to share Ã¢â‚¬Â¢ %1$s Ã¢â‚¬Â¢ %2$d MB\n%3$s</string>
-  <string name="prepare_apk_status_resumable">%1$s Ã¢â‚¬Â¢ %2$d%% downloaded</string>
+  <string name="prepare_apk_ready_detail">Ready to share • %1$s • %2$d MB\n%3$s</string>
+  <string name="prepare_apk_status_resumable">%1$s • %2$d%% downloaded</string>
   <string name="prepare_apk_source_installed">Sharing source: this installed APK</string>
-  <string name="prepare_apk_source_installed_arm64">Sharing source: this installed APK Ã¢â‚¬Â¢ ARM64 devices only</string>
+  <string name="prepare_apk_source_installed_arm64">Sharing source: this installed APK • ARM64 devices only</string>
   <string name="prepare_apk_source_downloaded">Sharing source: verified downloaded universal APK</string>
   <string name="prepare_apk_update_available">Version %1$s is available. You can keep sharing this APK or download the update.</string>
   <string name="prepare_apk_update_warning">New version available</string>
   <!-- Now the accessibility label and tooltip for an icon-only button, not a visible label. -->
   <string name="prepare_apk_get_universal">Download universal APK</string>
   <string name="prepare_apk_retry">Retry download</string>
-  <string name="prepare_apk_status_downloading">DownloadingÃ¢â‚¬Â¦ %1$d%%</string>
+  <string name="prepare_apk_status_downloading">Downloading… %1$d%%</string>
   <!-- Stages of preparing the APK. Only the transfer has a meaningful percentage. -->
-  <string name="prepare_apk_phase_awaiting_connectivity">Waiting for networkÃ¢â‚¬Â¦</string>
-  <string name="prepare_apk_phase_retrying">RetryingÃ¢â‚¬Â¦</string>
-  <string name="prepare_apk_phase_selecting_source">Selecting download sourceÃ¢â‚¬Â¦</string>
-  <string name="prepare_apk_phase_awaiting_route">Waiting for TorÃ¢â‚¬Â¦</string>
-  <string name="prepare_apk_phase_transferring">DownloadingÃ¢â‚¬Â¦</string>
-  <string name="prepare_apk_phase_verifying_signature">Verifying signatureÃ¢â‚¬Â¦</string>
+  <string name="prepare_apk_phase_awaiting_connectivity">Waiting for network…</string>
+  <string name="prepare_apk_phase_retrying">Retrying…</string>
+  <string name="prepare_apk_phase_selecting_source">Selecting download source…</string>
+  <string name="prepare_apk_phase_awaiting_route">Waiting for Tor…</string>
+  <string name="prepare_apk_phase_transferring">Downloading…</string>
+  <string name="prepare_apk_phase_verifying_signature">Verifying signature…</string>
   <string name="prepare_apk_stop">Stop download</string>
   <string name="prepare_apk_button_prepare">Prepare</string>
   <string name="prepare_apk_button_delete">Delete</string>
-  <string name="prepare_apk_info">Version %1$s Ã¢â‚¬Â¢ %2$d MB</string>
+  <string name="prepare_apk_info">Version %1$s • %2$d MB</string>
   <string name="prepare_apk_dialog_title">Download Universal APK?</string>
   <string name="prepare_apk_update_dialog_title">Download Newer Universal APK?</string>
   <string name="prepare_apk_dialog_message_unknown_size">This will download a verified universal APK from a configured source. You only need to do this once.</string>
   <string name="prepare_apk_update_dialog_message">Version %1$s is available from GitHub (%2$d MB). Your current APK remains shareable during the download.</string>
   <string name="prepare_apk_dialog_confirm">Download</string>
   <string name="prepare_apk_downloading_title">Downloading Universal APK</string>
-  <string name="prepare_apk_downloading_message">Downloading %1$d MBÃ¢â‚¬Â¦</string>
+  <string name="prepare_apk_downloading_message">Downloading %1$d MB…</string>
   <string name="prepare_apk_success">Universal APK ready!</string>
   <string name="prepare_apk_error_network">Network error. Check your connection.</string>
   <string name="prepare_apk_error_storage">Not enough storage space.</string>
@@ -364,8 +364,8 @@
   <string name="cd_offline_mesh_chat">Offline Mesh Chat</string>
   <string name="cd_online_geohash_channels">Online Geohash Channels</string>
   <string name="cd_end_to_end_encryption">End-to-End Encryption</string>
-  <string name="location_bluetooth_subtitle">Bluetooth Ã¢â‚¬Â¢ %1$s</string>
-  <string name="location_bluetooth_wifi_subtitle">Bluetooth Ã¢â‚¬Â¢ Wifi Ã¢â‚¬Â¢ %1$s</string>
+  <string name="location_bluetooth_subtitle">Bluetooth • %1$s</string>
+  <string name="location_bluetooth_wifi_subtitle">Bluetooth • Wifi • %1$s</string>
 
   <string name="image_page_of">Image %1$d of %2$d</string>
   <string name="image_unavailable">Image unavailable</string>
@@ -417,8 +417,8 @@
   <string name="location_permission_denied">Location permission denied. Enable in settings to use location channels.</string>
 
   <string name="location_permission_granted">\u2713 Location permission granted</string>
-  <string name="checking_permissions">Checking permissionsÃ¢â‚¬Â¦</string>
-  <string name="finding_nearby_channels">Finding nearby channelsÃ¢â‚¬Â¦</string>
+  <string name="checking_permissions">Checking permissions…</string>
+  <string name="finding_nearby_channels">Finding nearby channels…</string>
   <string name="bookmarked">Bookmarked</string>
   <string name="geohash_placeholder">geohash</string>
   <string name="invalid_geohash">Invalid geohash</string>
@@ -435,18 +435,18 @@
 
   <!-- Location notes sheet -->
   <string name="nearby_notes_reveal">check for notes left here</string>
-  <string name="nearby_notes_one">1 note left here Ã¢â‚¬â€ tap to read</string>
+  <string name="nearby_notes_one">1 note left here — tap to read</string>
   <!-- Explicit one/many copy mirrors iOS across locales without CLDR quantity gaps. -->
-  <string name="nearby_notes_many" tools:ignore="PluralsCandidate">%d notes left here Ã¢â‚¬â€ tap to read</string>
+  <string name="nearby_notes_many" tools:ignore="PluralsCandidate">%d notes left here — tap to read</string>
   <plurals name="location_notes_title">
-    <item quantity="one">#%1$s Ã‚Â± 1 Ã¢â‚¬Â¢ %2$d note</item>
-    <item quantity="other">#%1$s Ã‚Â± 1 Ã¢â‚¬Â¢ %2$d notes</item>
+    <item quantity="one">#%1$s ± 1 • %2$d note</item>
+    <item quantity="other">#%1$s ± 1 • %2$d notes</item>
   </plurals>
   <string name="location_notes_description">Add short permanent notes to this location for other visitors to find.</string>
   <string name="location_notes_relays_unavailable">Geo relays unavailable; notes paused</string>
   <string name="location_notes_no_relays_title">No geo relays nearby</string>
   <string name="location_notes_no_relays_desc">Notes rely on geo relays. Check connection and try again.</string>
-  <string name="loading_location_notes">Loading notesÃ¢â‚¬Â¦</string>
+  <string name="loading_location_notes">Loading notes…</string>
   <string name="location_notes_empty_title">No notes yet</string>
   <string name="location_notes_empty_desc">Be the first to add one for this spot.</string>
   <string name="dismiss">Dismiss</string>
@@ -470,7 +470,7 @@
   <string name="debug_roles_hint">Turn roles on/off and close all connections when disabled</string>
   <string name="debug_sync_settings">Sync settings</string>
   <string name="debug_max_packets_per_sync_fmt">Max packets per sync: %1$d</string>
-  <string name="debug_max_gcs_filter_size_fmt">Max GCS filter size: %1$d bytes (128Ã¢â‚¬â€œ1024)</string>
+  <string name="debug_max_gcs_filter_size_fmt">Max GCS filter size: %1$d bytes (128–1024)</string>
   <string name="debug_target_fpr_fmt">Target FPR: %1$.2f%%</string>
   <string name="debug_connected_devices">Connected devices</string>
   <string name="debug_our_device_id_fmt">Our device ID: %1$s</string>
@@ -518,9 +518,9 @@
   <string name="debug_connect">Connect</string>
   <string name="debug_debug_console">Debug console</string>
   <string name="debug_clear">Clear</string>
-  <string name="debug_relays_window_fmt">Last 10s: %1$d Ã¢â‚¬Â¢ 1m: %2$d Ã¢â‚¬Â¢ 15m: %3$d</string>
-  <string name="debug_derived_p_fmt">Derived P: %1$s Ã¢â‚¬Â¢ est. max elements: %2$s</string>
-  <string name="debug_direct_suffix"> Ã¢â‚¬Â¢ direct</string>
+  <string name="debug_relays_window_fmt">Last 10s: %1$d • 1m: %2$d • 15m: %3$d</string>
+  <string name="debug_derived_p_fmt">Derived P: %1$s • est. max elements: %2$s</string>
+  <string name="debug_direct_suffix"> • direct</string>
   <string name="debug_rssi_fmt">RSSI: %1$s</string>
   <string name="debug_question_mark">?</string>
   <string name="debug_role_server">As server (we host)</string>
@@ -531,7 +531,7 @@
   <string name="privacy_first">Privacy First</string>
   <string name="location_explanation">bitchat does NOT track your location.\n\nLocation services are required for Bluetooth scanning and for the Geohash chat feature.</string>
   <string name="location_needs_for">bitchat needs location services for:</string>
-  <string name="location_needs_bullets">Ã¢â‚¬Â¢ Bluetooth device scanning\nÃ¢â‚¬Â¢ Discovering nearby users on mesh network\nÃ¢â‚¬Â¢ Geohash chat feature\nÃ¢â‚¬Â¢ No tracking or location collection</string>
+  <string name="location_needs_bullets">• Bluetooth device scanning\n• Discovering nearby users on mesh network\n• Geohash chat feature\n• No tracking or location collection</string>
   <string name="background_location_required_title">Background Location Recommended</string>
   <string name="background_location_required_subtitle">Optional, improves mesh reliability</string>
   <string name="background_location_explanation">Android recommends background location so bitchat can scan for nearby devices while the app is not open. This keeps the mesh alive after reboot.</string>
@@ -548,7 +548,7 @@
   <string name="checking_location_services">Checking location services...</string>
   <string name="bluetooth_required">Bluetooth Required</string>
   <string name="bluetooth_needs_for">bitchat needs Bluetooth to:</string>
-  <string name="bluetooth_needs_bullets">Ã¢â‚¬Â¢ Discover nearby users\nÃ¢â‚¬Â¢ Create mesh network connections\nÃ¢â‚¬Â¢ Send and receive messages\nÃ¢â‚¬Â¢ Work without internet or servers</string>
+  <string name="bluetooth_needs_bullets">• Discover nearby users\n• Create mesh network connections\n• Send and receive messages\n• Work without internet or servers</string>
   <string name="enable_bluetooth">Enable Bluetooth</string>
   <string name="bluetooth_not_supported">Bluetooth Not Supported</string>
   <string name="bluetooth_unsupported_explanation">This device doesn\'t support Bluetooth Low Energy (BLE), which is required for bitchat to function.\n\nbitchat needs BLE to create mesh networks and communicate with nearby devices without internet.</string>
@@ -557,7 +557,7 @@
   <string name="battery_optimization_enabled_title">Battery Optimization Enabled</string>
   <string name="battery_optimization_explanation_short">bitchat needs to run in the background to maintain mesh connections. Battery optimization can interrupt these connections.</string>
   <string name="benefits_of_disabling">Benefits of Disabling</string>
-  <string name="battery_benefits_short">Ã¢â‚¬Â¢ Reliable message delivery\nÃ¢â‚¬Â¢ Maintains mesh connectivity\nÃ¢â‚¬Â¢ Prevents connection drops</string>
+  <string name="battery_benefits_short">• Reliable message delivery\n• Maintains mesh connectivity\n• Prevents connection drops</string>
   <string name="disable_battery_optimization">Disable Battery Optimization</string>
   <string name="battery_optimization_disabled_title">Battery optimization disabled</string>
   <string name="continue_btn">Continue</string>
@@ -565,23 +565,23 @@
   <string name="dot">.</string>
   <string name="setting_up_bluetooth">Setting up Bluetooth mesh networking...</string>
   <string name="should_take_seconds">This should only take a few seconds</string>
-  <string name="warning_emoji">Ã¢Å¡Â Ã¯Â¸Â</string>
+  <string name="warning_emoji">⚠️</string>
   <string name="setup_not_complete">Setup Not Complete</string>
   <string name="try_again">Try Again</string>
   <string name="open_settings">Open Settings</string>
   <string name="privacy_protected">Your Privacy is Protected</string>
-  <string name="privacy_bullets">Ã¢â‚¬Â¢ No tracking or data collection\nÃ¢â‚¬Â¢ Bluetooth mesh chats are fully offline\nÃ¢â‚¬Â¢ Geohash chats use the internet</string>
+  <string name="privacy_bullets">• No tracking or data collection\n• Bluetooth mesh chats are fully offline\n• Geohash chats use the internet</string>
   <string name="permissions_header">Permissions</string>
   <string name="grant_permissions">Grant Permissions</string>
   <string name="location_tracking_warning">bitchat does NOT track your location</string>
   <string name="at_symbol">@</string>
   <string name="cd_open_about">Open About</string>
-  <string name="channel_count_prefix"> Ã‚Â· Ã¢Â§â€° </string>
-  <string name="nobody_around">Nobody aroundÃ¢â‚¬Â¦</string>
+  <string name="channel_count_prefix"> · ⧉ </string>
+  <string name="nobody_around">Nobody around…</string>
   <string name="you_suffix"> (you)</string>
-  <string name="pan_zoom_instruction">Drag to spin Ã‚Â· Pinch to zoom Ã‚Â· Tap to focus</string>
+  <string name="pan_zoom_instruction">Drag to spin · Pinch to zoom · Tap to focus</string>
   <string name="select">Select</string>
-  <string name="type_a_message_placeholder">Type a messageÃ¢â‚¬Â¦</string>
+  <string name="type_a_message_placeholder">Type a message…</string>
   <string name="mention_suggestion_at">@%1$s</string>
   <string name="mention">Mention</string>
   <string name="image_counter">%1$d / %2$d</string>
@@ -590,22 +590,22 @@
   <string name="hash_symbol">#</string>
   <string name="underscore">_</string>
   <string name="progress_bar_brackets">[%1$s] %2$d%%</string>
-  <string name="progress_filled">Ã¢â€“Ë†</string>
-  <string name="progress_empty">Ã¢â€“â€˜</string>
+  <string name="progress_filled">█</string>
+  <string name="progress_empty">░</string>
   <string name="image_star">image/*</string>
   <string name="media_type_image">Image</string>
   <string name="media_type_file">File</string>
 
   <!-- Notification text helpers -->
-  <string name="notification_sent_image">Ã°Å¸â€œÂ· sent an image</string>
-  <string name="notification_sent_voice">Ã°Å¸Å½Â¤ sent a voice message</string>
-  <string name="notification_sent_file">Ã°Å¸â€œÅ½ sent a file</string>
-  <string name="notification_file_pdf">Ã°Å¸â€œâ€ž</string>
-  <string name="notification_file_zip">Ã°Å¸â€”Å“Ã¯Â¸Â</string>
-  <string name="notification_file_doc">Ã°Å¸â€œâ€ž</string>
-  <string name="notification_file_xls">Ã°Å¸â€œÅ </string>
-  <string name="notification_file_ppt">Ã°Å¸â€œË†</string>
-  <string name="notification_file_generic">Ã°Å¸â€œÅ½</string>
+  <string name="notification_sent_image">📷 sent an image</string>
+  <string name="notification_sent_voice">🎤 sent a voice message</string>
+  <string name="notification_sent_file">📎 sent a file</string>
+  <string name="notification_file_pdf">📄</string>
+  <string name="notification_file_zip">🗜️</string>
+  <string name="notification_file_doc">📄</string>
+  <string name="notification_file_xls">📊</string>
+  <string name="notification_file_ppt">📈</string>
+  <string name="notification_file_generic">📎</string>
 
   <!-- Voice player accessibility -->
   <string name="cd_play_voice">Play</string>
@@ -691,14 +691,13 @@
   <string name="spam_reveal_all">Reveal channel</string>
   <string name="spam_mute_thirty">Mute 30 min</string>
   <string name="spam_block_phrase">Block phrase</string>
-    <string name="spam_block_word">Block word %1$s</string>
 <string name="spam_restore_trust">Restore trust</string>
 <string name="spam_translated_label">In your language</string>
-    <string name="translation_running_label">TranslatingÃ¢â‚¬Â¦</string>
-    <string name="translation_failed_label">No translation: %1$s</string>
   <string name="spam_signal_muted">muted sender</string>
   <string name="spam_signal_blocked">blocked phrase</string>
   <string name="spam_signal_repeat">repeat</string>
+  <string name="spam_signal_shouty_flood">shouty flood</string>
+  <string name="spam_signal_repetitive_content">repeated text</string>
   <string name="spam_signal_copycat">copied by several senders</string>
   <string name="spam_signal_burst">sender burst</string>
   <string name="spam_signal_flood">channel flood</string>
@@ -706,11 +705,11 @@
   <string name="spam_signal_links">many links</string>
   <string name="spam_signal_scam">scam phrasing</string>
   <string name="spam_signal_chain">forwarded chain</string>
-    <string name="spam_signal_repeat_content">repeated text</string>
-    <string name="spam_signal_shout_flood">shouty flood</string>
   <string name="spam_signal_pow">no proof-of-work</string>
   <string name="spam_signal_reputation">poor sender history</string>
   <string name="spam_flag_marker">Spam shield: suspicious</string>
+  <string name="spam_suggestion">Tap to add the repeated word to your blocklist</string>
+  <string name="spam_block_word">Block word %1$s</string>
   <!-- Auto translation -->
   <string name="translation_active_label">Translating to %1$s</string>
   <string name="translation_toggle_title">Auto translate messages</string>
@@ -725,6 +724,8 @@
   <string name="translation_display_off">Original only</string>
   <string name="translation_display_below">Under the original</string>
   <string name="translation_display_replace">Replace the original</string>
+  <string name="translation_running_label">Translating&#8230;</string>
+  <string name="translation_failed_label">No translation: %1$s</string>
   <string name="translation_target_title">Translate into</string>
   <string name="translation_channel_title">This channel</string>
   <string name="translation_channel_state">Currently %1$s</string>

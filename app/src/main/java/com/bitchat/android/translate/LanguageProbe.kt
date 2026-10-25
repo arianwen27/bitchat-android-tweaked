@@ -26,11 +26,15 @@ enum class Script {
 object LanguageProbe {
     private const val MIN_MEANINGFUL_CHARS = 3
 
-    /** Ukrainian, Russian, Serbian and Bulgarian all use Cyrillic, so letter marks break the tie. */
-    private val UKRAINIAN_MARKS = charArrayOf('ї', 'є', 'ґ', 'і')
-    private val SERBIAN_MARKS = charArrayOf('ђ', 'љ', 'њ', 'ћ', 'џ')
-    private val BULGARIAN_MARKS = charArrayOf('ъ', 'ѝ')
-    private val BELARUSIAN_MARKS = charArrayOf('ў')
+    /**
+     * Letter marks that separate the Slavic languages sharing Cyrillic. Written as escapes so the
+     * source stays plain ASCII and cannot be damaged by encoding conversion.
+     */
+    private val UKRAINIAN_MARKS = charArrayOf('\u0457', '\u0454', '\u0491')
+    private val SERBIAN_MARKS = charArrayOf('\u0452', '\u0458', '\u0459', '\u045A', '\u045B')
+    private val BULGARIAN_MARKS = charArrayOf('\u044A', '\u0455')
+    private val BELARUSIAN_MARKS = charArrayOf('\u0456', '\u040E')
+    private val RUSSIAN_MARKS = charArrayOf('\u044B', '\u044D', '\u0451')
 
     /**
      * Frequency word hints for Latin-script languages. A language is chosen only when its hint words
@@ -45,20 +49,21 @@ object LanguageProbe {
         "fr" to listOf("le", "la", "les", "des", "une", "un", "est", "sont", "avec", "pour", "que",
             "qui", "je", "tu", "vous", "nous", "dans", "sur", "pas", "bonjour", "merci", "salut",
             "comment", "oui", "non", "monde", "bien", "comme", "aussi", "tout", "votre", "notre",
-            "ce", "cette", "suis", "ça"),
+            "ce", "cette", "suis", "a"),
         "de" to listOf("und", "der", "die", "das", "mit", "nicht", "ich", "sie", "ist", "bin", "sind",
             "mein", "wir", "auch", "guten", "hallo", "danke", "wie", "sehr"),
-        "es" to listOf("los", "las", "que", "con", "para", "pero", "más", "muy", "por", "como", "no",
-            "sí", "todo", "bien", "hola", "gracias", "cómo", "un", "una"),
+        "es" to listOf("los", "las", "que", "con", "para", "pero", "m\u00E1s", "muy", "por", "como",
+            "no", "s\u00ED", "todo", "bien", "hola", "gracias", "c\u00F3mo", "un", "una"),
         "it" to listOf("il", "che", "non", "con", "per", "sono", "gli", "la", "un", "una", "mi", "ti",
             "come", "molto", "anche", "questo", "buon"),
-        "pt" to listOf("ção", "você", "com", "os", "uma", "muito", "bem", "como", "que", "para",
-            "obrigado", "não"),
+        "pt" to listOf("\u00E7\u00E3o", "voc\u00EA", "com", "os", "uma", "muito", "bem", "como", "que",
+            "para", "obrigado", "n\u00E3o"),
         "nl" to listOf("het", "een", "van", "met", "de", "en", "ik", "ben", "zijn", "ook", "als", "goed"),
-        "pl" to listOf("się", "nie", "że", "jest", "bardzo", "mam", "jak", "co", "dobrze", "jesteś"),
-        "tr" to listOf("bir", "ve", "bu", "değil", "çok", "nasıl", "sen", "benim", "için"),
-        "sv" to listOf("och", "att", "det", "inte", "jag", "är", "med", "så", "mycket"),
-        "fi" to listOf("ja", "se", "että", "minä", "olen", "kiitos", "paljon", "hyvä", "olla"),
+        "pl" to listOf("sie", "nie", "ze", "jest", "bardzo", "mam", "jak", "co", "dobrze", "jestes"),
+        "tr" to listOf("bir", "ve", "bu", "degil", "\u00E7ok", "nas\u0131l", "sen", "benim", "i\u00E7in"),
+        "sv" to listOf("och", "att", "det", "inte", "jag", "\u00E4r", "med", "s\u00E5", "mycket"),
+        "fi" to listOf("ja", "se", "ett\u00E4", "min\u00E4", "olen", "kiitos", "paljon", "hyv\u00E4",
+            "olla"),
         "id" to listOf("dan", "yang", "untuk", "tidak", "saya", "apa", "halo", "terima")
     )
 
@@ -67,16 +72,17 @@ object LanguageProbe {
      * so a mark settles a tie that word hints alone cannot.
      */
     private val LATIN_MARKS = linkedMapOf(
-        "fr" to charArrayOf('à', 'â', 'ç', 'é', 'è', 'ê', 'î', 'ï', 'ô', 'û', 'ÿ', 'œ'),
-        "de" to charArrayOf('ä', 'ö', 'ü', 'ß'),
-        "es" to charArrayOf('ñ', '¿', '¡'),
-        "pt" to charArrayOf('ã', 'õ', 'ç'),
-        "pl" to charArrayOf('ł', 'ą', 'ę', 'ś', 'ż', 'ź', 'ń', 'ó'),
-        "tr" to charArrayOf('ı', 'ğ', 'ş', 'ç', 'ö', 'ü'),
-        "sv" to charArrayOf('å', 'ä', 'ö'),
-        "cs" to charArrayOf('ě', 'š', 'č', 'ř', 'ž', 'á', 'í', 'é', 'ú', 'ň', 'ť', 'ď'),
-        "hu" to charArrayOf('ő', 'ű'),
-        "it" to charArrayOf('ì', 'ò', 'ù')
+        "fr" to charArrayOf('\u00E0', '\u00E2', '\u00E4', '\u00E7', '\u00E9', '\u00E8', '\u00EA',
+            '\u00EB', '\u00EE', '\u00EF', '\u00F4', '\u00FB', '\u00FF'),
+        "de" to charArrayOf('\u00E4', '\u00F6', '\u00FC', '\u00DF'),
+        "es" to charArrayOf('\u00E1', '\u00ED', '\u00F3', '\u00FA', '\u00F1'),
+        "pt" to charArrayOf('\u00E3', '\u00E7', '\u00E9', '\u00F4', '\u00ED', '\u00FA'),
+        "pl" to charArrayOf('\u0105', '\u0107', '\u0119', '\u0142', '\u0144', '\u015B', '\u017A', '\u017C'),
+        "tr" to charArrayOf('\u0131', '\u011F', '\u015F', '\u00F6', '\u00E7', '\u00FC'),
+        "sv" to charArrayOf('\u00E5', '\u00E4', '\u00F6'),
+        "cs" to charArrayOf('\u011B', '\u0161', '\u010D', '\u0159', '\u017E'),
+        "hu" to charArrayOf('\u0151', '\u0171'),
+        "it" to charArrayOf('\u00E0', '\u00E8', '\u00EC', '\u00F2', '\u00F9')
     )
 
     /** Tag used when a Latin message has no hint words, matching the app's main UI language. */
@@ -125,6 +131,7 @@ object LanguageProbe {
         if (lower.any { it in UKRAINIAN_MARKS }) return "uk"
         if (lower.any { it in BELARUSIAN_MARKS }) return "be"
         if (lower.any { it in BULGARIAN_MARKS }) return "bg"
+        if (lower.any { it in RUSSIAN_MARKS }) return "ru"
         return "ru"
     }
 
@@ -132,7 +139,7 @@ object LanguageProbe {
      * Scores every Latin language by hint words plus orthographic marks, and picks the highest.
      *
      * Punctuation is turned into spaces so word hints match on boundaries; accented characters count as
-     * one signal each, because a single 'ß' or 'ñ' is stronger evidence than one common shared word.
+     * one signal each, because a single accented letter is stronger evidence than one shared word.
      */
     private fun latinLanguage(text: String): String {
         val lower = text.lowercase()

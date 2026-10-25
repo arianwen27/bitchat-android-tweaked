@@ -117,6 +117,17 @@ Thresholds: Gentle 45/95, Balanced 30/55, Aggressive 20/40.
   locking), which updated `app/gradle.lockfile` and
   `gradle/verification-metadata.xml`.
 
+## Non-ASCII source is written as escapes
+
+An encoding pass of mine damaged `strings.xml` (bullets, ellipses, emoji, the composer hint rendered as
+deformed text) and Cyrillic literals in `SpamShield.kt`, `LanguageProbe.kt`, and `LanguageProbeTest.kt`.
+`strings.xml` was restored from the clean commit, and every non-ASCII literal in this feature is now
+written as `\uXXXX` escapes so the sources stay plain ASCII and cannot be damaged by encoding
+conversion. Verified: `strings.xml` has its 38 bullets and 16 ellipses back, the composer hint renders
+as `Type a message…`, all files in `spam/`, `translate/`, `ui/Moderation*`, `ui/SpamReviewSheet.kt` and
+`app/src/debug/.../testhook` are ASCII-only, and the Slavic disambiguation test covers ru, uk, sr, bg, be
+(и is shared by Ukrainian and Belarusian, so it is not a Ukrainian-only mark).
+
 ## Reading hidden spam, and sender-level judgement
 - **The review sheet translates.** Hidden messages never reach the chat list, so nothing else asks for
   their translations; the sheet requests them for its own scope, per channel, behind the same consent

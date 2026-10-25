@@ -107,7 +107,7 @@ class SpamShield {
         const val MAX_CROSS_SENDER_SCORE = 60
 
         /** Phrases that repeatedly appear in coordinated flood spam, in several scripts. */
-        val SCAM_PHRASES = listOf(
+                val SCAM_PHRASES = listOf(
             "free airdrop",
             "airdrop bot",
             "usdt giveaway",
@@ -131,23 +131,23 @@ class SpamShield {
             "check my profile",
             "my telegram",
             "dm me for",
-            "转发到",
-            "免费空投",
-            "送1得2"
+            "\u043f\u0435\u0440\u0435\u0432\u0435\u0434\u0438",
+            "\u043e\u0442\u0434\u0430\u043c",
+            "\u0437\u0430\u0440\u0430\u0431\u043e\u0442\u043e\u043a"
         )
 
         /** Chain-letter markers: `Fwd:`/`FW:`/`Re:` prefixes, counted per line. */
         val FORWARD_MARKER = Regex("""(?m)^\s*(fwd?w?|fw|re)\s*[:.]""")
 
-        val CHAIN_PHRASES = listOf(
+                val CHAIN_PHRASES = listOf(
             "forward this",
             "forwarding this",
             "forward it to",
             "send this to",
             "chain mail",
             "chain letter",
-            "复制并转发",
-            "转发此"
+            "\u043f\u0435\u0440\u0435\u0448\u043b\u0438",
+            "\u043e\u0442\u043f\u0440\u0430\u0432\u044c"
         )
 
         val ZERO_WIDTH = intArrayOf(0x200B, 0x200C, 0x200D, 0x200E, 0x200F, 0xFEFF, 0x00AD)

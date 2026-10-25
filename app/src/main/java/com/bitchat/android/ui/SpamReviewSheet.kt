@@ -326,8 +326,8 @@ private fun signalLabel(signal: SpamSignal): Int = when (signal) {
     SpamSignal.LinkFlood -> R.string.spam_signal_links
     SpamSignal.ScamPhrase -> R.string.spam_signal_scam
     SpamSignal.ForwardChain -> R.string.spam_signal_chain
-    SpamSignal.RepetitiveContent -> R.string.spam_signal_repeat_content
-    SpamSignal.ShoutFlood -> R.string.spam_signal_shout_flood
+    SpamSignal.RepetitiveContent -> R.string.spam_signal_repetitive_content
+    SpamSignal.ShoutFlood -> R.string.spam_signal_shouty_flood
     SpamSignal.NoProofOfWork -> R.string.spam_signal_pow
     SpamSignal.LowReputation -> R.string.spam_signal_reputation
 }
