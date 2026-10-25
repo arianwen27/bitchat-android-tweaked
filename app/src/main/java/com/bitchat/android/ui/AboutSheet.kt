@@ -304,6 +304,9 @@ fun AboutSheet(
     isPresented: Boolean,
     onDismiss: () -> Unit,
     onShowDebug: (() -> Unit)? = null,
+    translationConversationKey: String? = null,
+    onShowSpamReview: () -> Unit = {},
+
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -368,7 +371,15 @@ fun AboutSheet(
                     if (selectedTab == AboutTab.Info) {
                         // What the app is, then how to drive it. Both are reference material a
                         // new user reads once, so they belong on the same tab.
+                        item(key = "moderation_spam") {
+                            SpamShieldSettingsSection(onOpenReview = onShowSpamReview)
+                        }
+                        item(key = "moderation_translation") {
+                            TranslationSettingsSection(currentConversationKey = translationConversationKey)
+                        }
+
                         item(key = "features") {
+
                             Column {
                                 AboutSectionLabel(text = stringResource(R.string.about_section_about))
                                 AboutFeatureCard()

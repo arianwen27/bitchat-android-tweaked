@@ -4,6 +4,10 @@ import android.app.Application
 import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
+import com.bitchat.android.spam.SpamShieldPreferences
+import com.bitchat.android.spam.SpamShieldService
+import com.bitchat.android.translate.TranslationStore
+
 import androidx.lifecycle.viewModelScope
 import com.bitchat.android.favorites.FavoritesChangeListener
 import com.bitchat.android.favorites.FavoritesPersistenceService
@@ -1437,6 +1441,11 @@ class ChatViewModel(
     private var panicClearInProgress = false
 
     fun panicClearAllData() {
+        // The spam windows, mutes, hidden ledger and translation cache are in-memory process state,
+        // so they go with the rest of the wipe. Scores and the user phrase list are settings.
+        SpamShieldService.reset()
+        TranslationStore.clear()
+
         if (panicClearInProgress) return
         panicClearInProgress = true
         viewModelScope.launch {
@@ -1719,7 +1728,47 @@ class ChatViewModel(
     /**
      * Return the stable identity used by every UI surface to color a mesh peer.
      */
+    // MARK: - Spam shield review sheet
+
+    fun showSpamReview() {
+        state.setShowSpamReview(true)
+    }
+
+    fun hideSpamReview() {
+        state.setShowSpamReview(false)
+    }
+
+    /** Sheet visibility, exposed as a flow so the sheet name cannot collide with the show function. */
+    val showSpamReviewSheet: StateFlow<Boolean> = state.showSpamReview
+
+    /** Shield state, so the action sheet only offers spam actions when the shield is on. */
+    val spamShieldEnabled: StateFlow<Boolean> = SpamShieldPreferences.enabled
+
+    /**
+     * Mark a sender as a spammer, by explicit user judgement, from the message action sheet.
+     *
+     * The sender is muted for an hour and takes a reputation hit. They are not whitelisted or
+     * blacklisted forever: scoring continues, the mute ends, and normal chatter is admitted once it
+     * does.
+     */
+    fun markSpammer(message: BitchatMessage) {
+        SpamShieldService.markSpammer(SpamShieldService.keyOf(message), message.sender)
+    }
+
+    /**
+     * Return a sender to default trust: mute, reputation, strikes and repeat observations reset.
+     *
+     * Use this when the review sheet shows a person who is clearly just chatting. Thresholds,
+     * sensitivity, block phrases and content rules are untouched, so their next spam is judged by the
+     * same rules as anyone else's.
+     */
+    fun restoreSpamTrust(message: BitchatMessage) {
+        SpamShieldService.restoreSender(SpamShieldService.keyOf(message), message.sender)
+    }
+
     fun peerIdentityForMeshPeer(peerID: String): PeerIdentity = PeerIdentity.mesh(peerID)
+
+
 
     /**
      * Return the stable identity used by every UI surface to color a Nostr peer.

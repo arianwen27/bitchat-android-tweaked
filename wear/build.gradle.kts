@@ -104,6 +104,10 @@ val sharedSourceIncludes = listOf(
     "com/bitchat/android/services/SeenMessageStore.kt",
     "com/bitchat/android/services/VerificationService.kt",
     "com/bitchat/android/services/meshgraph/**",
+    // AppStateStore gates public/channel messages through the local spam shield, so the shield
+    // must travel with it. The watch leaves the shield off by default (no init call, no UI),
+    // which keeps the gate inert until the wear settings sheet exposes it.
+    "com/bitchat/android/spam/**",
     "com/bitchat/android/service/TransportBridgeService.kt",
     "com/bitchat/android/nostr/Bech32.kt",
     "com/bitchat/android/nostr/GeohashAliasRegistry.kt",

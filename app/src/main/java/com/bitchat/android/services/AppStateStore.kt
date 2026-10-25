@@ -3,6 +3,7 @@ package com.bitchat.android.services
 import android.content.Context
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
+import com.bitchat.android.spam.SpamShieldService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -194,6 +195,9 @@ object AppStateStore {
 
     fun addPublicMessage(msg: BitchatMessage) {
         synchronized(this) {
+            // Content spam gate. Verdicts are memoized by message id inside the shield, so one
+            // message delivered over several transports is scored exactly once.
+            if (!SpamShieldService.admit(msg, _nickname.value)) return
             val publicKey = publicMessageKey(msg)
             if (seenMessageIds.contains(msg.id) || retainedPublicMessageIds.contains(msg.id) ||
                 seenPublicMessageKeys.contains(publicKey)
@@ -847,6 +851,10 @@ object AppStateStore {
 
     fun addChannelMessage(channel: String, msg: BitchatMessage) {
         synchronized(this) {
+            // Content gate. A hidden spam message never reaches the channel timeline, so it
+            // cannot raise an unread badge, persist, or notify. Verdicts are memoized by
+            // message id, so a message delivered over several transports is scored once.
+            if (!SpamShieldService.admit(msg, _nickname.value)) return
             if (seenMessageIds.contains(msg.id) ||
                 _channelMessages.value[channel].orEmpty().any { it.id == msg.id }
             ) return

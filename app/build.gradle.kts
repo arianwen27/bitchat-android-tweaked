@@ -148,6 +148,7 @@ dependencies {
     // QR
     implementation(libs.zxing.core)
     implementation(libs.mlkit.barcode.scanning)
+    implementation(libs.mlkit.translate)
 
     // CameraX
     implementation(libs.androidx.camera.camera2)

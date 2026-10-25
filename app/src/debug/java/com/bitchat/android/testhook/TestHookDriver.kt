@@ -16,6 +16,7 @@ import com.bitchat.android.mesh.MeshService
 import com.bitchat.android.mesh.PrivateMediaPreparation
 import com.bitchat.android.mesh.TransferProgressManager
 import com.bitchat.android.model.BitchatFilePacket
+import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.RoutedPacket
 import com.bitchat.android.noise.NoiseSession
 import com.bitchat.android.protocol.BitchatPacket
@@ -23,6 +24,7 @@ import com.bitchat.android.service.MeshForegroundService
 import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
+import com.bitchat.android.services.IncomingMessageAdmission
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.PrivateMediaRecipientResolver
 import com.bitchat.android.util.AppConstants
@@ -37,6 +39,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.util.Date
 import java.security.MessageDigest
 
 /**
@@ -89,6 +92,7 @@ object TestHookDriver {
             "ptt_send" -> pttSend(context, intent)
             "ptt_recv" -> pttRecv(context, intent)
             "raw_send" -> rawSend(context, intent)
+        "inject_msg" -> injectMsg(context, intent)
             "ble" -> setBle(intent.getBooleanExtra("enabled", true))
             "inject_peers" -> injectPeers(intent.getStringExtra("peers"))
             "state" -> state(context)
@@ -228,6 +232,30 @@ object TestHookDriver {
     private fun announce(context: Context): JSONObject {
         mesh(context).sendBroadcastAnnounce()
         return ok("announce")
+    }
+
+    /**
+     * Debug-only: put a synthetic message through the real admission path.
+     *
+     * The emulator has no mesh radios, so content moderation can only be observed on device by
+     * feeding it a message from a synthetic sender. Nothing is broadcast, no peer is touched, and the
+     * message passes the same gate a relay copy would, including the spam shield and the translation
+     * cache. Content is supplied by the test, never read from a device.
+     */
+    private fun injectMsg(context: Context, intent: Intent): JSONObject {
+        val content = intent.requiredString("content")
+        val sender = intent.requiredString("sender")
+        val channel = intent.getStringExtra("channel")
+        val id = intent.getStringExtra("msg_id") ?: "inject-" + System.currentTimeMillis()
+        val message = BitchatMessage(
+            id = id,
+            sender = sender,
+            content = content,
+            timestamp = Date(),
+            channel = channel
+        )
+        val admitted = IncomingMessageAdmission.admitToAppState(message)
+        return ok("inject_msg").put("admitted", admitted).put("id", id)
     }
 
     private fun broadcastMsg(context: Context, content: String, channel: String?): JSONObject {

@@ -42,8 +42,35 @@ This project is released into the public domain. See the [LICENSE](LICENSE.md) f
 - **Tor Support**: Built-in Tor (Arti) for private internet connectivity
 - **Emergency Wipe**: Triple-tap to instantly clear all data
 - **Cross-Platform**: Binary protocol compatible with bitchat on iOS and macOS
+- **Content Spam Shield**: opt-in, on-device content scoring for public and location channels. Repeats, floods, link spam, forwarded chains, scam phrasing and blocked phrases are scored locally; hidden messages never reach the timeline, notifications, history, or storage, and every hide is reviewable and revealable.
+- **In-App Auto Translation**: translated text under the original in any channel, on-device via ML Kit by default, with a self-hosted LibreTranslate endpoint as an option. Per-channel target and source language, and translation of hidden spam for review.
 
-## Technical Architecture
+## Fork additions
+
+This fork adds two client-side features for global and location channels, where spam is the main problem and proof-of-work is widely ignored. Both are opt-in, off by default, and change no protocol, packet format, or PoW requirement, so mesh and Nostr interoperability is unchanged.
+
+**Content spam shield** (`app/src/main/java/com/bitchat/android/spam/`)
+- Scores message **content** on the device: exact repeats, copies relayed by several senders, sender bursts, channel floods, character runs, link floods, scam phrasing, forwarded chains, weak or missing proof-of-work, blocked phrases, and a sender reputation that decays hourly.
+- Four sensitivities: Off, Gentle, Balanced (default), Aggressive. Flag-visible mode shows a warning label below the hide threshold; only past the hide threshold is a message suppressed.
+- Hidden messages are not stored: they never reach the timeline, unread counts, haptics, notifications, persistence, or delivery bookkeeping. The review sheet lists them for the current app run only, with the reason, and actions Reveal, Reveal channel, Restore trust, Mute 30 min, Block phrase.
+- Auto-mute is second-strike and applies only to content signals, never to rate or reputation, and never extends an existing mute. Off by default.
+- **Restore trust** returns a sender to default points (mute, reputation, repeat history cleared) and replays their hidden messages. It is not a whitelist: the same rules judge their next message.
+- **Mark as spammer** in the message long-press menu mutes a sender for an hour with an explicit, deliberate judgement.
+- Private chats, encrypted payloads, media, voice, and system messages are never read, scored, muted, or sent to a model.
+- The engine fails open: if scoring throws, the message is admitted, because losing real messages is worse than showing spam.
+- On-device only. No message content, sender, fingerprint, score, reputation, blocklist, or mute is transmitted, and no content is written to disk.
+
+**In-app auto translation** (`app/src/main/java/com/bitchat/android/translate/`)
+- Translated text below (or replacing) the original in channel, global, location, private and mesh chats. Per-conversation target **and** source language: in a French location channel, set the source to French so short chat lines are not mis-detected as English.
+- On-device engine uses ML Kit Translation. Google Play fetches language packs over Wi-Fi (about 30 MB per pair); a model download reveals which language pair is fetched, never the message text.
+- Online engine sends message text to a **self-hosted LibreTranslate** endpoint you configure. It is refused unless the URL is `https` and the host is not a clear-text local name, and requests inherit the app Tor routing when Tor is on.
+- Translation results are cached in memory keyed by message id, capped at 400 records, and are never written to disk.
+- Mentions such as `@nick` and `@nick#id` are lifted out of the text, the sentence is translated, and the handles are re-attached verbatim, so peer ids are never fed to a model.
+- Private text is translated only when you explicitly enable it.
+- No word list, phrase, sender, geohash, or translation is uploaded for detection. Language detection uses Unicode script ranges plus a small set of high-frequency chat words, and a language label is not location.
+
+Full notes on behaviour, privacy boundaries, verification and open work: [docs/moderation-translation-notes.md](docs/moderation-translation-notes.md).
+
 
 ### Bluetooth Mesh Network (Offline)
 

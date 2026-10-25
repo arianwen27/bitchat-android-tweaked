@@ -45,7 +45,13 @@ class BitchatApplication : Application() {
             com.bitchat.android.nostr.NostrIdentityBridge.getCurrentNostrIdentity(this)
         } catch (_: Exception) { }
 
+        // Initialize the local spam shield and the translation cache before transports can deliver
+        // anything, so the first messages of a session are scored against an initialised store.
+        try { com.bitchat.android.spam.SpamShieldService.init(this) } catch (_: Exception) { }
+        try { com.bitchat.android.translate.TranslationStore.init(this) } catch (_: Exception) { }
+
         // Initialize theme preference
+
         ThemePreferenceManager.init(this)
 
         // Initialize chat UI mode (matrix transcript vs bubbles)

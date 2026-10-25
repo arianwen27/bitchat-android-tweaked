@@ -123,7 +123,12 @@ class ChatState(
     private val _showAppInfo = MutableStateFlow<Boolean>(false)
     val showAppInfo: StateFlow<Boolean> = _showAppInfo.asStateFlow()
 
+    // Spam review sheet visibility
+    private val _showSpamReview = MutableStateFlow(false)
+    val showSpamReview: StateFlow<Boolean> = _showSpamReview.asStateFlow()
+
     private val _showMeshPeerList = MutableStateFlow(false)
+
     val showMeshPeerList: StateFlow<Boolean> = _showMeshPeerList.asStateFlow()
 
     private val _privateChatSheetPeer = MutableStateFlow<String?>(null)
@@ -171,7 +176,12 @@ class ChatState(
         )
     
     // Getters for internal state access
+    fun setShowSpamReview(value: Boolean) {
+        _showSpamReview.value = value
+    }
+
     fun getMessagesValue() = _messages.value
+
     fun getConnectedPeersValue() = _connectedPeers.value
     fun getNicknameValue() = _nickname.value
     fun getPrivateChatsValue() = _privateChats.value

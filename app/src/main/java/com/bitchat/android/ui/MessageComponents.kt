@@ -7,6 +7,14 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.material.icons.Icons
+import com.bitchat.android.spam.SpamShieldPreferences
+import com.bitchat.android.spam.SpamShieldService
+import com.bitchat.android.translate.TranslationDisplayMode
+import com.bitchat.android.translate.TranslationPreferences
+import com.bitchat.android.translate.TranslationRecord
+import com.bitchat.android.translate.TranslationState
+import com.bitchat.android.translate.TranslationStore
+
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
@@ -240,6 +248,9 @@ fun MessagesList(
      * so the new channel opened at a stale position and then animated itself into place.
      */
     conversationKey: Any? = null,
+    /** Target language for auto translation; null leaves every message exactly as it was written. */
+    translationTargetLang: String? = null,
+
     forceScrollToBottom: Boolean = false,
     onScrolledUpChanged: ((Boolean) -> Unit)? = null,
     onNicknameClick: ((String) -> Unit)? = null,
@@ -253,6 +264,21 @@ fun MessagesList(
     // Collected once here so individual rows never subscribe to the preference flow; a mode
     // switch simply recomposes the list against the new layout.
     val bubbles by ChatUiModeManager.modeFlow.collectAsState()
+
+    // Collected once for the whole list: rows read the translation cache, the flagged set, and the
+    // display mode from these snapshots, so a long channel never opens a subscription per row.
+    val translationRecords by TranslationStore.snapshot.collectAsState()
+    val flaggedIds by SpamShieldService.flaggedIds.collectAsState()
+    val translationDisplay by TranslationPreferences.displayMode.collectAsState()
+    val flagVisible by SpamShieldPreferences.flagVisible.collectAsState()
+    LaunchedEffect(messages, translationTargetLang, conversationKey) {
+        if (translationTargetLang != null) {
+            // The key is the same string settings store the channel language under.
+            val translationKey = conversationKey?.toString() ?: "mesh"
+            TranslationStore.requestAll(messages, translationTargetLang, translationKey)
+        }
+    }
+
 
     // A fresh scroll position per conversation. Sharing one state meant a switch inherited the
     // previous channel's offset and then had to correct itself, which is what the jump was.
@@ -384,7 +410,12 @@ fun MessagesList(
                 mentionPeerIdentities = resolvedMentionPeerIdentities,
                 showSender = !isGrouped,
                 bubbles = bubbles.isBubbles,
+                translationTargetLang = translationTargetLang,
+                translationRecords = translationRecords,
+                translationDisplay = translationDisplay,
+                flaggedIds = if (flagVisible) flaggedIds else emptySet(),
                 topSpacing = MessageGrouping.topSpacingFor(
+
                     isGrouped = isGrouped,
                     isFirstInList = originalIndex == 0
                 ),
@@ -419,6 +450,11 @@ fun MessageItem(
     showSender: Boolean = true,
     bubbles: Boolean = false,
     topSpacing: Dp = 0.dp,
+    translationTargetLang: String? = null,
+    translationRecords: Map<String, TranslationRecord> = emptyMap(),
+    translationDisplay: TranslationDisplayMode = TranslationDisplayMode.Below,
+    flaggedIds: Set<String> = emptySet(),
+
     onNicknameClick: ((String) -> Unit)? = null,
     onMessageLongPress: ((BitchatMessage) -> Unit)? = null,
     onCancelTransfer: ((BitchatMessage) -> Unit)? = null,
@@ -428,13 +464,35 @@ fun MessageItem(
     val colorScheme = MaterialTheme.colorScheme
     val timeFormatter = remember { SimpleDateFormat(CHAT_TIMESTAMP_PATTERN, Locale.getDefault()) }
 
+    // Translation is keyed by message id and tagged with the language it was produced for, so
+    // switching a channel to a different target language never reuses stale text.
+    val record = translationTargetLang?.let { lang ->
+        translationRecords[message.id]?.takeIf { it.targetLang == lang }
+    }
+    val translated = (record?.state as? TranslationState.Ready)?.text
+    val replaceBody = translated != null && translationDisplay == TranslationDisplayMode.Replace
+    val showTranslationBelow = translated != null && translationDisplay == TranslationDisplayMode.Below
+    val flagged = message.id in flaggedIds
+
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(top = topSpacing),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
+        if (flagged) {
+            Text(
+                text = stringResource(R.string.spam_flag_marker),
+                fontFamily = BitchatFontFamily,
+                fontSize = 12.sp,
+                color = colorScheme.error,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+
         Box(modifier = Modifier.fillMaxWidth()) {
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Start,
@@ -445,7 +503,7 @@ fun MessageItem(
                 val endPad = if (!bubbles && message.isPrivate && message.sender == currentUserNickname) 16.dp else 0.dp
                 // Create a custom layout that combines selectable text with clickable nickname areas
                 MessageTextWithClickableNicknames(
-                    message = message,
+                    message = if (replaceBody) message.copy(content = translated ?: message.content) else message,
                     messages = messages,
                     currentUserNickname = currentUserNickname,
                     meshService = meshService,
@@ -496,7 +554,22 @@ fun MessageItem(
             }
         }
 
+        if (showTranslationBelow) {
+            Text(
+                text = translated.orEmpty(),
+                fontFamily = BitchatFontFamily,
+                fontSize = 13.sp,
+                color = colorScheme.onSurfaceVariant,
+                lineHeight = 18.sp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 3.dp)
+            )
+        }
+
+        
         // Link previews removed; links are now highlighted inline and clickable within the message text
+
     }
 }
 

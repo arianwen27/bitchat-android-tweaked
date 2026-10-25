@@ -2,6 +2,11 @@ package com.bitchat.android.ui
 
 import android.os.Build
 import com.bitchat.android.ui.theme.BitchatFontFamily
+import com.bitchat.android.spam.SpamShieldService
+import com.bitchat.android.translate.TranslationDisplayMode
+import com.bitchat.android.translate.TranslationLanguageCatalog
+import com.bitchat.android.translate.TranslationPreferences
+
 // [Goose] Bridge file share events to ViewModel via dispatcher is installed in ChatScreen composition
 
 // [Goose] Installing FileShareDispatcher handler in ChatScreen to forward file sends to ViewModel
@@ -295,19 +300,47 @@ fun ChatScreen(viewModel: ChatViewModel) {
             // Nearby-notes strip and the reveal hint both live in this Box alongside the
             // list, rather than in a Column above it, because the conversation has to scroll
             // underneath the translucent bars. Their heights are reserved as list padding.
+            val spamHidden by SpamShieldService.hidden.collectAsState()
+            val translationEnabled by TranslationPreferences.enabled.collectAsState()
+            val translationDisplayMode by TranslationPreferences.displayMode.collectAsState()
+            val translationTargetLang: String? = when {
+                !translationEnabled || translationDisplayMode == TranslationDisplayMode.Off -> null
+                else -> TranslationPreferences.languageFor(conversationKey)
+            }
+            var moderationBarHeight by remember { mutableStateOf(0.dp) }
+            val moderationVisible = spamHidden.isNotEmpty() || translationTargetLang != null
+
             var notesStripHeight by remember { mutableStateOf(0.dp) }
+
             val showNotesStrip =
                 isMeshTimeline && nearbyNotesRevealed && nearbyNotes.isNotEmpty()
 
+            if (moderationVisible) {
+                ModerationBar(
+                    hiddenCount = spamHidden.size,
+                    targetLangLabel = translationTargetLang?.let { TranslationLanguageCatalog.labelFor(it) },
+                    onReviewClick = { viewModel.showSpamReview() },
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .onSizeChanged { size ->
+                            moderationBarHeight = with(density) { size.height.toDp() }
+                        }
+                )
+            }
+
             MessagesList(
+
                 messages = displayMessages,
                 currentUserNickname = nickname,
                 meshService = viewModel.meshServiceFacade,
                 mentionPeerIdentities = mentionPeerIdentities,
                 modifier = Modifier.fillMaxSize(),
                 conversationKey = conversationKey,
+                translationTargetLang = translationTargetLang,
+
                 contentPadding = PaddingValues(
-                    top = statusBarHeight + headerHeight +
+                    top = statusBarHeight + headerHeight + (if (moderationVisible) moderationBarHeight else 0.dp) +
                         (if (showNotesStrip) notesStripHeight else 0.dp),
                     bottom = composerHeight
                 ),
@@ -505,7 +538,16 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     }
 
+    val showSpamReview by viewModel.showSpamReviewSheet.collectAsState()
+    if (showSpamReview) {
+        SpamReviewSheet(
+            isPresented = true,
+            onDismiss = { viewModel.hideSpamReview() }
+        )
+    }
+
     // Full-screen image viewer - separate from other sheets to allow image browsing without navigation
+
     if (showFullScreenImageViewer) {
         FullScreenImageViewer(
             imagePaths = viewerImagePaths,
@@ -557,6 +599,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
         onSecurityVerificationSheetDismiss = viewModel::hideSecurityVerificationSheet,
         showMeshPeerListSheet = showMeshPeerListSheet,
         onMeshPeerListDismiss = viewModel::hideMeshPeerList,
+        translationConversationKey = conversationKey,
+
     )
 
     legacyPrivateMediaConsent?.let { request ->
@@ -839,6 +883,8 @@ private fun ChatDialogs(
     onSecurityVerificationSheetDismiss: () -> Unit,
     showMeshPeerListSheet: Boolean,
     onMeshPeerListDismiss: () -> Unit,
+    translationConversationKey: String?,
+
 ) {
     val privateChatSheetPeer by viewModel.privateChatSheetPeer.collectAsStateWithLifecycle()
 
@@ -857,7 +903,10 @@ private fun ChatDialogs(
     AboutSheet(
         isPresented = showAppInfo,
         onDismiss = onAppInfoDismiss,
-        onShowDebug = { showDebugSheet = true }
+        onShowDebug = { showDebugSheet = true },
+        translationConversationKey = translationConversationKey,
+        onShowSpamReview = { viewModel.showSpamReview() }
+
     )
     if (showDebugSheet) {
         com.bitchat.android.ui.debug.DebugSettingsSheet(

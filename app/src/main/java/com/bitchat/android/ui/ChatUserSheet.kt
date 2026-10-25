@@ -43,6 +43,7 @@ fun ChatUserSheet(
     val standardPurple = palette.accentPurple
     val standardRed = colorScheme.error
     val standardGrey = colorScheme.onSurfaceVariant
+    val spamShieldEnabled by viewModel.spamShieldEnabled.collectAsState()
     
     if (isPresented) {
         BitchatBottomSheet(
@@ -148,7 +149,34 @@ fun ChatUserSheet(
                             )
                         }
                         
-                        // Block action
+                        
+                        // Spam shield actions: judgement in both directions, sender level, not a whitelist
+                        if (spamShieldEnabled && selectedMessage != null) {
+                            item {
+                                UserActionRow(
+                                    title = stringResource(R.string.action_mark_spammer_title, targetNickname),
+                                    subtitle = stringResource(R.string.action_mark_spammer_subtitle),
+                                    titleColor = standardRed,
+                                    onClick = {
+                                        viewModel.markSpammer(selectedMessage)
+                                        onDismiss()
+                                    }
+                                )
+                            }
+                            item {
+                                UserActionRow(
+                                    title = stringResource(R.string.action_restore_trust_title, targetNickname),
+                                    subtitle = stringResource(R.string.action_restore_trust_subtitle),
+                                    titleColor = standardGreen,
+                                    onClick = {
+                                        viewModel.restoreSpamTrust(selectedMessage)
+                                        onDismiss()
+                                    }
+                                )
+                            }
+                        }
+
+// Block action
                         item {
                             UserActionRow(
                                 title = stringResource(R.string.action_block_title, targetNickname),
