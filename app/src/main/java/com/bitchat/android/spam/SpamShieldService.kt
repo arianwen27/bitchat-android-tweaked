@@ -35,7 +35,7 @@ object SpamShieldService {
     private val _hidden = MutableStateFlow<List<SpamHit>>(emptyList())
     private val _flaggedIds = MutableStateFlow<Set<String>>(emptySet())
     private val _hiddenTotal = MutableStateFlow(0)
-    private val removalLog = LinkedHashMap<String, List<Pair<String?, BitchatMessage>>>(64, 0.75f, true)
+    private val removalLog = LinkedHashMap<String, List<AppStateStore.PurgedEntry>>(64, 0.75f, true)
 
     /** Hidden messages kept in memory only, newest first, for the review sheet. */
     val hidden: StateFlow<List<SpamHit>> = _hidden.asStateFlow()
@@ -208,8 +208,8 @@ object SpamShieldService {
         // labelled as the user's own judgement, so Restore trust is reachable without waiting for
         // the sender to post something new.
         val already = _hidden.value.filter { it.senderKey == key }.map { it.message.id }.toSet()
-        removed.filterNot { already.contains(it.second.id) }.forEach { (scope, msg) ->
-            recordHidden(msg, scope ?: MESH_SCOPE, key, msg.sender, setOf(SpamSignal.PurgedSender), 60)
+        removed.filterNot { already.contains(it.message.id) }.forEach { entry ->
+            recordHidden(entry.message, entry.channel ?: MESH_SCOPE, key, entry.message.sender, setOf(SpamSignal.PurgedSender), 60)
         }
         while (removalLog.size > MAX_REMOVAL_LOG) {
             val oldest = removalLog.keys.first()

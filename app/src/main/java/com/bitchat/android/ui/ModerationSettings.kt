@@ -54,6 +54,7 @@ import com.bitchat.android.ui.theme.BitchatFontFamily
 fun SpamShieldSettingsSection(onOpenReview: () -> Unit, modifier: Modifier = Modifier) {
     val colorScheme = MaterialTheme.colorScheme
     val enabled by SpamFilterPreferences.enabled.collectAsState()
+    val contentEnabled by SpamShieldPreferences.enabled.collectAsState()
     val mode by SpamShieldPreferences.mode.collectAsState()
     val autoMute by SpamShieldPreferences.autoMuteMinutes.collectAsState()
     val flagVisible by SpamShieldPreferences.flagVisible.collectAsState()
@@ -77,6 +78,13 @@ fun SpamShieldSettingsSection(onOpenReview: () -> Unit, modifier: Modifier = Mod
             color = colorScheme.onSurfaceVariant
         )
 
+        SwitchRow(
+            title = stringResource(R.string.spam_content_title),
+            subtitle = stringResource(R.string.spam_content_subtitle),
+            checked = contentEnabled,
+            onChange = SpamShieldPreferences::setEnabled
+        )
+
         ChipLabel(stringResource(R.string.spam_sensitivity_title))
         ChipRow(
             options = listOf(
@@ -86,7 +94,7 @@ fun SpamShieldSettingsSection(onOpenReview: () -> Unit, modifier: Modifier = Mod
                 stringResource(R.string.spam_mode_aggressive)
             ),
             selectedIndex = mode.ordinal,
-            enabled = enabled,
+            enabled = contentEnabled,
             onSelect = { index -> SpamShieldPreferences.setMode(SpamMode.values()[index]) }
         )
 
@@ -101,7 +109,7 @@ fun SpamShieldSettingsSection(onOpenReview: () -> Unit, modifier: Modifier = Mod
             ),
             // Never is index 0 and a valid choice, so the highlight must not be forced up.
             selectedIndex = listOf(0, 10, 30, 60, 180).indexOf(autoMute).coerceAtLeast(0),
-            enabled = enabled,
+            enabled = contentEnabled,
             onSelect = { index -> SpamShieldPreferences.setAutoMuteMinutes(listOf(0, 10, 30, 60, 180)[index]) }
         )
 

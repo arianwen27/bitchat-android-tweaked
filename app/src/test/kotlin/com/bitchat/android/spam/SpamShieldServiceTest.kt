@@ -301,6 +301,38 @@ class SpamShieldServiceTest {
         assertTrue(SpamShieldService.admit(publicMessage("pt-2", "bot_p", "a plain question"), "me"))
     }
 
+    @Test
+    fun restoredMessagesGoBackToTheSlotsTheyOccupied() {
+        val channel = "geo:pos"
+        val base = System.currentTimeMillis()
+        fun stamped(id: String, sender: String, content: String, offsetMs: Long) =
+            publicMessage(id, sender, content).copy(channel = channel, timestamp = Date(base + offsetMs))
+
+        listOf(
+            stamped("pos-1", "p1", "first from one", 0L),
+            stamped("pos-2", "p2", "first from two", 1_000L),
+            stamped("pos-3", "p3", "first from three", 2_000L),
+            stamped("pos-4", "p1", "second from one", 3_000L),
+            stamped("pos-5", "p3", "second from three", 4_000L),
+            stamped("pos-6", "p2", "second from two", 5_000L),
+        ).forEach { AppStateStore.addChannelMessage(channel, it) }
+        assertEquals(6, AppStateStore.channelMessages.value.getValue(channel).size)
+
+        // Purging a sender must leave gaps where their messages were, not at the end.
+        SpamShieldService.markSpammer("p2", "p2")
+        assertEquals(
+            listOf("pos-1", "pos-3", "pos-4", "pos-5"),
+            AppStateStore.channelMessages.value.getValue(channel).map { it.id },
+        )
+
+        // Restoring must put them back in those slots, interleaved, not in one clump at the newest.
+        SpamShieldService.restoreSender("p2", "p2")
+        assertEquals(
+            listOf("pos-1", "pos-2", "pos-3", "pos-4", "pos-5", "pos-6"),
+            AppStateStore.channelMessages.value.getValue(channel).map { it.id },
+        )
+    }
+
     private fun publicMessage(id: String, sender: String, content: String) = BitchatMessage(
         id = id,
         sender = sender,

@@ -924,73 +924,74 @@ object AppStateStore {
      * messages, so the first few posts of a spammer stay on screen without this. The sender key is
      * the same stable identity the shield scores: Nostr pubkey, then peer id, then nickname.
      */
-    fun removeMessagesFromSender(senderKey: String): List<Pair<String?, BitchatMessage>> =
+    /**
+     * A message taken out of a timeline, plus the slot it occupied when it was removed.
+     *
+     * Restoring by slot is what keeps a restored sender interleaved with the messages they were
+     * talking between. Slot order is the timeline's own order, so it does not depend on message
+     * timestamps, which can tie, arrive late through a relay, or be randomized by gift-wrap.
+     */
+    data class PurgedEntry(
+        val channel: String?,
+        val slot: Int,
+        val message: BitchatMessage,
+    )
+
+    fun removeMessagesFromSender(senderKey: String): List<PurgedEntry> =
         synchronized(this) {
-            val removed = mutableListOf<Pair<String?, BitchatMessage>>()
+            val removed = mutableListOf<PurgedEntry>()
             val channels = _channelMessages.value.toMutableMap()
             for (channel in channels.keys.toList()) {
                 val list = channels[channel].orEmpty()
-                val hit = list.filter { senderKeyOf(it) == senderKey }
-                if (hit.isEmpty()) continue
-                removed += hit.map { channel to it }
+                list.forEachIndexed { index, message ->
+                    if (senderKeyOf(message) == senderKey) removed += PurgedEntry(channel, index, message)
+                }
+                if (removed.none { it.channel == channel }) continue
                 channels[channel] = list.filterNot { senderKeyOf(it) == senderKey }
             }
             _channelMessages.value = channels
             val publicList = _publicMessages.value
-            val publicHit = publicList.filter { senderKeyOf(it) == senderKey }
-            if (publicHit.isNotEmpty()) {
-                removed += publicHit.map { null to it }
+            publicList.forEachIndexed { index, message ->
+                if (senderKeyOf(message) == senderKey) removed += PurgedEntry(null, index, message)
+            }
+            if (removed.any { it.channel == null }) {
                 _publicMessages.value = publicList.filterNot { senderKeyOf(it) == senderKey }
             }
             removed
         }
 
     /**
-     * Puts restored messages back into their timelines. Restore is an explicit user judgement, so
-     * this bypasses the content gate; the copies were held only for the session, and ids are
-     * deduped per timeline so a restore cannot double a message.
+     * Puts restored messages back into the slots they occupied before they were purged.
+     *
+     * Restore is an explicit user judgement, so this bypasses the content gate. Copies were held
+     * only for the session, ids are deduped per timeline so a restore cannot double a message, and
+     * slots are filled in ascending order so an earlier restore does not shift a later one.
      */
-    fun replayMessages(entries: List<Pair<String?, BitchatMessage>>): Int {
+    fun replayMessages(entries: List<PurgedEntry>): Int {
         if (entries.isEmpty()) return 0
         synchronized(this) {
             var count = 0
             val channels = _channelMessages.value.toMutableMap()
-            for (entry in entries) {
-                val channel = entry.first
-                val msg = entry.second
-                if (channel == null) {
-                    val list = _publicMessages.value
-                    if (list.any { it.id == msg.id }) continue
-                    retainedPublicMessageIds.add(msg.id)
-                    _publicMessages.value = insertMessageChronologically(list, msg)
+            val publicList = _publicMessages.value.toMutableList()
+            for (entry in entries.sortedBy { it.slot }) {
+                val msg = entry.message
+                if (entry.channel == null) {
+                    if (publicList.any { it.id == msg.id }) continue
+                    publicList.add(entry.slot.coerceAtMost(publicList.size), msg)
                 } else {
-                    val list = channels[channel].orEmpty()
+                    val list = channels[entry.channel].orEmpty().toMutableList()
                     if (list.any { it.id == msg.id }) continue
-                    channels[channel] = insertMessageChronologically(list, msg)
+                    list.add(entry.slot.coerceAtMost(list.size), msg)
+                    channels[entry.channel] = list
                 }
                 count++
             }
+            val trimmed = publicList.takeLast(MAX_PUBLIC_TIMELINE_MESSAGES)
+            retainedPublicMessageIds.retainAll(trimmed.map { it.id }.toSet())
+            _publicMessages.value = trimmed
             _channelMessages.value = channels
             return count
         }
-    }
-
-    /**
-     * Put a restored message back at its own time, not at the end of the timeline.
-     *
-     * Restoring a sender replays several messages that were interleaved with other people's, so
-     * appending puts them in one clump at the newest position with gaps where they belonged. The
-     * timelines are ordered oldest to newest by message timestamp, so insertion is at the first
-     * message that is at or after this one.
-     */
-    private fun insertMessageChronologically(
-        messages: List<BitchatMessage>,
-        message: BitchatMessage,
-    ): List<BitchatMessage> {
-        if (messages.isEmpty()) return listOf(message)
-        val index = messages.indexOfFirst { it.timestamp >= message.timestamp }
-        if (index < 0) return messages + message
-        return messages.subList(0, index) + message + messages.subList(index, messages.size)
     }
 
     private fun senderKeyOf(message: BitchatMessage): String =

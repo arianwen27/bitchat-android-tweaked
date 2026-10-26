@@ -126,6 +126,26 @@ Upstream `main` is post-release development code, and these parts are unfinished
 - Mesh Lab on two physical devices for BLE, Wi-Fi Aware and hotspot transports. Emulators have
   no radios, so only Nostr/relay-sourced channels, UI, settings and persistence are exercised.
 
+## Two switches, and content rules are opt-in
+
+The fork's content rules have their own switch (`Score message content`), and the upstream
+**Spam Filter** row in Settings governs the rate and repetition rules. Both must be on for content
+scoring: `SpamShieldPreferences.policy()` returns `Off` unless the fork's own flag is set. Earlier
+the content rules folded into the master switch, so they activated on a fresh install and inside
+tests that only enable the rate filter — that broke upstream's own spam, participant-tracking,
+timeline-retention, and event-processor tests, because the fork hid copies the repo's contract
+allows (upstream admits three copies of identical text from different pubkeys; the fork hid the
+second). Sensitivity, auto-mute, flag-visible, PoW, and the blocklist are gated on the content
+switch, so they cannot be changed while the rules are off.
+
+## Restore returns messages to the slots they occupied
+
+`removeMessagesFromSender` returns `PurgedEntry(channel, slot, message)` and `replayMessages` fills
+slots in ascending order, so a restored sender returns interleaved with the messages they were
+talking between. Slot order is the timeline's own order, so restore does not depend on timestamps,
+which can tie, arrive late through a relay, or be randomized by gift-wrap. A test asserts the gaps
+left by purging one of three interleaved senders, and the exact rebuilt order after restore.
+
 ## Verification
 
 - Emulator (debug build, geohash channels, no radios): settings round-trip through

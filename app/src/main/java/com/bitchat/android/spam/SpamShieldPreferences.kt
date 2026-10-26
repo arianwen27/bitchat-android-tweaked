@@ -68,9 +68,14 @@ object SpamShieldPreferences {
         _blocklist.value = loadBlocklist(store)
     }
 
-    /** Settings folded into a policy. The master switch wins over the chosen sensitivity. */
+    /**
+     * Settings folded into a policy. The content rules are opt-in on their own switch; the master
+     * Spam Filter switch in Settings governs the rate and repetition rules, so both must be on for
+     * the shield to score. This keeps content rules off by default on a fresh install, and keeps
+     * the fork's rules from silently activating tests and clients that only enable the rate filter.
+     */
     fun policy(): SpamPolicy = SpamPolicy(
-        mode = if (SpamFilterPreferences.enabled.value) _mode.value else SpamMode.Off,
+        mode = if (_enabled.value) _mode.value else SpamMode.Off,
         blocklist = _blocklist.value,
         autoMuteMinutes = _autoMuteMinutes.value,
         requireProofOfWorkInGeohash = _requireProofOfWork.value
@@ -78,7 +83,6 @@ object SpamShieldPreferences {
 
     fun setEnabled(value: Boolean) {
         _enabled.value = value
-        SpamFilterPreferences.setEnabled(value)
         write { it.edit().putBoolean(KEY_ENABLED, value).apply()}
     }
 
