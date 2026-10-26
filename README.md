@@ -2,6 +2,8 @@
 
 ## bitchat for Android
 
+I got bored, this is 100% vibecoded with a local LLM, I just wanted to see if it could actually do it, it seems it can.
+
 A decentralized peer-to-peer messaging app with dual transport architecture: local Bluetooth mesh networks for offline communication and internet-based Nostr protocol for global reach. No accounts, no phone numbers, no central servers.
 
 This is the Android implementation of bitchat, fully protocol-compatible with the [iOS version](https://github.com/permissionlesstech/bitchat) for cross-platform mesh communication.
