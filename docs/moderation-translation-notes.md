@@ -45,6 +45,22 @@ same window and no translation failures.
 floor of 1, which forced Never (index 0) to display as 10 min. The floor is now 0. Tapping Never on
 the emulator writes auto_mute_minutes = 0 to spam_shield_v1.xml and the chip stays highlighted.
 
+**Purging visible spam, and restoring it.** Muting only stops future messages, so the first posts
+of a spammer stayed on screen. AppStateStore gains `removeMessagesFromSender`, which clears every
+visible message of a stable sender key across channel and public timelines, and `replayMessages`,
+which puts them back. `SpamShieldService` keeps in-memory copies per sender, capped at 60 messages
+and 100 senders, never persisted, purges when a mute begins, and replays them on restore trust. The
+second-strike rule is now `contentStrike`, shared by the shield and by verdicts recorded from the
+upstream rate filter, so auto-mute and purge are not tied to which engine made a hide. Unit tests
+cover a rate-filter hide reaching the strike rule, the purge, the restore, and that purge is keyed
+to the sender so innocent chatter in the same channel survives. On the emulator, injected synthetic
+messages in a live flooded geochat were hidden by the upstream filter before they could render
+(`admitted: false` for every injection), so the bar counted them (`5 spam messages hidden`) and the
+review sheet listed them with `repeat` labels and Restore trust, but a purge of visible rows cannot
+be shown in that channel: nothing from the injected sender ever reaches the timeline. The debug
+bypass pref `spam_filter_debug_bypass` is the route to demonstrate it, since it lets injected
+messages render first.
+
 ## Surfaces the fork adds
 
 - **Count + review sheet.** Hidden messages live in memory only, newest first: sender, time,
