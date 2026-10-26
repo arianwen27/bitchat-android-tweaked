@@ -34,7 +34,7 @@ object SpamShieldService {
     private val allowedIds = LinkedHashSet<String>()
     private val _hidden = MutableStateFlow<List<SpamHit>>(emptyList())
     private val _flaggedIds = MutableStateFlow<Set<String>>(emptySet())
-    private val _hiddenTotal = MutableStateFlow(0)
+
     private val removalLog = LinkedHashMap<String, List<AppStateStore.PurgedEntry>>(64, 0.75f, true)
 
     /** Hidden messages kept in memory only, newest first, for the review sheet. */
@@ -46,7 +46,7 @@ object SpamShieldService {
      * The ledger is capped, so a count taken from the list stops growing during a flood and reads
      * as if the shield went quiet. The flood usually keeps going, and the reader needs to see that.
      */
-    val hiddenCount: StateFlow<Int> = _hiddenTotal.asStateFlow()
+
 
     /** Message ids currently marked as suspicious in the timeline. */
     val flaggedIds: StateFlow<Set<String>> = _flaggedIds.asStateFlow()
@@ -273,7 +273,7 @@ object SpamShieldService {
         allowedIds.clear()
         removalLog.clear()
         _hidden.value = emptyList()
-        _hiddenTotal.value = 0
+
         _flaggedIds.value = emptySet()
         SpamShieldPreferences.clearMutes()
     }
@@ -309,7 +309,7 @@ object SpamShieldService {
             hiddenAtMs = System.currentTimeMillis()
         )
         _hidden.value = (listOf(hit) + _hidden.value).take(MAX_LEDGER)
-        _hiddenTotal.value += 1
+
         _flaggedIds.update { it - message.id }
     }
 

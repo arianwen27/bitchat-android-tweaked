@@ -65,7 +65,7 @@ fun SpamReviewSheet(
 ) {
     if (!isPresented) return
     val hidden by SpamShieldService.hidden.collectAsState()
-    val hiddenTotal by SpamShieldService.hiddenCount.collectAsState()
+
     val records by TranslationStore.snapshot.collectAsState()
     val translationEnabled by TranslationPreferences.enabled.collectAsState()
     val globalTarget by TranslationPreferences.targetLang.collectAsState()
@@ -117,7 +117,7 @@ fun SpamReviewSheet(
                         color = colorScheme.onSurface
                     )
                     Text(
-                        text = stringResource(R.string.spam_review_summary, hiddenTotal),
+                        text = stringResource(R.string.spam_review_summary, hidden.size),
                         fontFamily = BitchatFontFamily,
                         fontSize = 13.sp,
                         color = colorScheme.onSurfaceVariant,

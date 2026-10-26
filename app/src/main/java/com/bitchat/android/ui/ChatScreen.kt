@@ -300,7 +300,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             // Nearby-notes strip and the reveal hint both live in this Box alongside the
             // list, rather than in a Column above it, because the conversation has to scroll
             // underneath the translucent bars. Their heights are reserved as list padding.
-            val spamHiddenCount by SpamShieldService.hiddenCount.collectAsState()
+            val spamHidden by SpamShieldService.hidden.collectAsState()
             val translationEnabled by TranslationPreferences.enabled.collectAsState()
             val translationDisplayMode by TranslationPreferences.displayMode.collectAsState()
             val translationTargetLang: String? = when {
@@ -308,7 +308,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 else -> TranslationPreferences.languageFor(conversationKey)
             }
             var moderationBarHeight by remember { mutableStateOf(0.dp) }
-            val moderationVisible = spamHiddenCount > 0 || translationTargetLang != null
+            val moderationVisible = spamHidden.isNotEmpty() || translationTargetLang != null
 
             var notesStripHeight by remember { mutableStateOf(0.dp) }
 
@@ -400,7 +400,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             // on Review never reached the bar.
             if (moderationVisible) {
                 ModerationBar(
-                    hiddenCount = spamHiddenCount,
+                    hiddenCount = spamHidden.size,
                     targetLangLabel = translationTargetLang?.let { TranslationLanguageCatalog.labelFor(it) },
                     onReviewClick = { viewModel.showSpamReview() },
                     modifier = Modifier

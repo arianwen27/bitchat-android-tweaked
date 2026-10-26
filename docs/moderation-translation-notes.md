@@ -72,8 +72,9 @@ that restoring brings the messages back and re-admits the sender.
 ## Surfaces the fork adds
 
 - **Count + review sheet.** Hidden messages live in memory only, newest first: sender, time,
-  signals, text. `hiddenCount` is a cumulative per-run counter, not the ledger size, so a
-  flood that continues stays visible past the ledger cap.
+  signals, text. The count is how many messages are hidden right now, so reveal, restore and
+  purge make it go down, and the bar cannot drift away from what the review sheet shows.
+  The ledger is capped at 150 rows, so a flood past the cap shows 150.
 - **Actions:** Reveal, Reveal channel, Restore trust, Mark as spammer, Mute, Block word
   (the repeated token), Block phrase. Restore trust clears mute, reputation, strikes and the
   sender's observations, then replays their hidden messages; it is not a whitelist — a scam
@@ -162,7 +163,7 @@ left by purging one of three interleaved senders, and the exact rebuilt order af
 
 ## Commits
 
-Fork `main`: `ae11b9d9` feature, `e8e441b1` word walls + shout flood + cumulative count +
+Fork `main`: `ae11b9d9` feature, `e8e441b1` word walls + shout flood + count = ledger size +
 capped hidden translation, `15a1abbd` string repair + ASCII-safe literals, `a3b9acee` neutral
 test tokens, `1930f0a3` ignore Gradle daemon file, `fe559413` merge of 13 upstream commits,
 `b01720ef` `ShieldVerdict` rename, `9e0faf7e` upstream verdicts recorded into the fork ledger.

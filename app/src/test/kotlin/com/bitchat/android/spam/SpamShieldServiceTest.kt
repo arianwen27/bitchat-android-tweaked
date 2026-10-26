@@ -202,18 +202,20 @@ class SpamShieldServiceTest {
     }
 
     @Test
-    fun hiddenCountKeepsCountingPastTheLedgerCap() {
+    fun theHiddenCountReflectsCurrentlyHiddenMessages() {
         SpamShieldPreferences.addBlockedPhrase("blockme")
 
-        for (index in 0 until 155) {
+        for (index in 0 until 5) {
             val message = publicMessage("id-cap-$index", "flood_speaker", "blockme line $index")
             assertFalse(SpamShieldService.admit(message, "me"))
         }
 
-        // The ledger is capped, so its size cannot be the count shown in the bar: the bar must keep
-        // counting during a flood, or a flood looks like the shield went quiet.
-        assertEquals(150, SpamShieldService.hidden.value.size)
-        assertEquals(155, SpamShieldService.hiddenCount.value)
+        // The count is how many messages are hidden right now, so reveal, restore and purge make
+        // it go down, and the bar cannot drift away from what the review sheet shows.
+        assertEquals(5, SpamShieldService.hidden.value.size)
+        SpamShieldService.reveal("id-cap-0")
+        SpamShieldService.reveal("id-cap-1")
+        assertEquals(3, SpamShieldService.hidden.value.size)
     }
 
     @Test
