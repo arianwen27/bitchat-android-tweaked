@@ -284,6 +284,23 @@ class SpamShieldServiceTest {
         assertTrue(SpamShieldService.admit(publicMessage("st-5", "bot_r", "a plain question"), "me"))
     }
 
+    @Test
+    fun markingASpammerLeavesARowSoTrustCanBeRestored() {
+        val visible = publicMessage("pt-1", "bot_p", "hello everyone").copy(channel = "geo:pt1")
+        AppStateStore.addChannelMessage("geo:pt1", visible)
+        assertEquals(1, AppStateStore.channelMessages.value.getValue("geo:pt1").size)
+
+        // Purging a sender must not make them unreachable: the review sheet has to keep a row,
+        // otherwise un-marking requires waiting for the sender to post something new.
+        SpamShieldService.markSpammer("bot_p", "bot_p")
+        assertTrue(SpamShieldService.hidden.value.any { it.senderKey == "bot_p" })
+        assertEquals(0, AppStateStore.channelMessages.value.getValue("geo:pt1").size)
+
+        SpamShieldService.restoreSender("bot_p", "bot_p")
+        assertEquals(1, AppStateStore.channelMessages.value.getValue("geo:pt1").size)
+        assertTrue(SpamShieldService.admit(publicMessage("pt-2", "bot_p", "a plain question"), "me"))
+    }
+
     private fun publicMessage(id: String, sender: String, content: String) = BitchatMessage(
         id = id,
         sender = sender,

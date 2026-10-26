@@ -61,6 +61,14 @@ be shown in that channel: nothing from the injected sender ever reaches the time
 bypass pref `spam_filter_debug_bypass` is the route to demonstrate it, since it lets injected
 messages render first.
 
+**Un-marking a sender they can no longer see.** Purging a sender cleared their messages from the
+timeline, and the review sheet only lists hidden messages, so a sender whose messages were flagged
+and then purged left no row to act on: un-marking required waiting for them to post something new.
+`purgeSender` now records each purged message into the ledger labelled `marked as spammer`, so
+Restore trust is reachable immediately, and restore replays both the purged messages and the hidden
+rows. A unit test asserts that marking a spammer leaves a row, that the timeline is cleared, and
+that restoring brings the messages back and re-admits the sender.
+
 ## Surfaces the fork adds
 
 - **Count + review sheet.** Hidden messages live in memory only, newest first: sender, time,

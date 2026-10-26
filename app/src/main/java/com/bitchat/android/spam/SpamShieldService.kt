@@ -203,6 +203,14 @@ object SpamShieldService {
         val removed = AppStateStore.removeMessagesFromSender(key)
         if (removed.isEmpty()) return 0
         removalLog[key] = removed.takeLast(MAX_REMOVED_PER_SENDER)
+        // The user cannot un-mark a sender whose messages are gone: the review sheet only lists
+        // hidden messages, so purging must leave a row behind. Record each purged message once,
+        // labelled as the user's own judgement, so Restore trust is reachable without waiting for
+        // the sender to post something new.
+        val already = _hidden.value.filter { it.senderKey == key }.map { it.message.id }.toSet()
+        removed.filterNot { already.contains(it.second.id) }.forEach { (scope, msg) ->
+            recordHidden(msg, scope ?: MESH_SCOPE, key, msg.sender, setOf(SpamSignal.PurgedSender), 60)
+        }
         while (removalLog.size > MAX_REMOVAL_LOG) {
             val oldest = removalLog.keys.first()
             removalLog.remove(oldest)
