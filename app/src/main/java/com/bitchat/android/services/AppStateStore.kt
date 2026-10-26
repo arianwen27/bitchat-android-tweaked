@@ -918,7 +918,67 @@ object AppStateStore {
         }
     }
 
-    fun removeGeohashMessagesFromSender(pubkeyHex: String) {
+        /**
+     * Removes every visible message from one sender across the channel and public timelines, and
+     * returns what was removed so the spam service can replay it later. Muting only stops future
+     * messages, so the first few posts of a spammer stay on screen without this. The sender key is
+     * the same stable identity the shield scores: Nostr pubkey, then peer id, then nickname.
+     */
+    fun removeMessagesFromSender(senderKey: String): List<Pair<String?, BitchatMessage>> =
+        synchronized(this) {
+            val removed = mutableListOf<Pair<String?, BitchatMessage>>()
+            val channels = _channelMessages.value.toMutableMap()
+            for (channel in channels.keys.toList()) {
+                val list = channels[channel].orEmpty()
+                val hit = list.filter { senderKeyOf(it) == senderKey }
+                if (hit.isEmpty()) continue
+                removed += hit.map { channel to it }
+                channels[channel] = list.filterNot { senderKeyOf(it) == senderKey }
+            }
+            _channelMessages.value = channels
+            val publicList = _publicMessages.value
+            val publicHit = publicList.filter { senderKeyOf(it) == senderKey }
+            if (publicHit.isNotEmpty()) {
+                removed += publicHit.map { null to it }
+                _publicMessages.value = publicList.filterNot { senderKeyOf(it) == senderKey }
+            }
+            removed
+        }
+
+    /**
+     * Puts restored messages back into their timelines. Restore is an explicit user judgement, so
+     * this bypasses the content gate; the copies were held only for the session, and ids are
+     * deduped per timeline so a restore cannot double a message.
+     */
+    fun replayMessages(entries: List<Pair<String?, BitchatMessage>>): Int {
+        if (entries.isEmpty()) return 0
+        synchronized(this) {
+            var count = 0
+            val channels = _channelMessages.value.toMutableMap()
+            for (entry in entries) {
+                val channel = entry.first
+                val msg = entry.second
+                if (channel == null) {
+                    val list = _publicMessages.value
+                    if (list.any { it.id == msg.id }) continue
+                    retainedPublicMessageIds.add(msg.id)
+                    _publicMessages.value = appendPublicMessage(list, msg)
+                } else {
+                    val list = channels[channel].orEmpty()
+                    if (list.any { it.id == msg.id }) continue
+                    channels[channel] = appendPublicMessage(list, msg)
+                }
+                count++
+            }
+            _channelMessages.value = channels
+            return count
+        }
+    }
+
+    private fun senderKeyOf(message: BitchatMessage): String =
+        (message.senderNostrPubkey ?: message.senderPeerID ?: message.sender).lowercase()
+
+fun removeGeohashMessagesFromSender(pubkeyHex: String) {
         synchronized(this) {
             val messages = _channelMessages.value.mapValues { (channel, list) ->
                 if (!channel.startsWith("geo:")) list

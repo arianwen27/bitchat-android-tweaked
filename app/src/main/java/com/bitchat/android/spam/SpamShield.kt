@@ -344,7 +344,7 @@ class SpamShield {
         val (flagThreshold, hideThreshold) = thresholds(policy.mode)
         if (score >= hideThreshold) {
             record(candidate, normalized, senderKey, spam = true)
-            val mutedUntil = applyAutoMute(signals, senderKey, senderLabel, candidate.timestampMs, policy)
+            val mutedUntil = contentStrike(signals, senderKey, senderLabel, candidate.timestampMs, policy)
             return ShieldVerdict.Hidden(score, signals.toSet(), mutedUntil)
         }
         if (score >= flagThreshold) {
@@ -496,7 +496,7 @@ class SpamShield {
      * one spam-shaped line would otherwise lose every normal message they send for half an hour, and
      * each renewed mute makes that silence permanent. The expiry is not extended, so a mute ends.
      */
-    private fun applyAutoMute(
+    fun contentStrike(
         signals: Set<SpamSignal>,
         senderKey: String,
         senderLabel: String,

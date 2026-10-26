@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.BitchatMessageType
+import com.bitchat.android.services.AppStateStore
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -221,6 +222,66 @@ class SpamShieldServiceTest {
 
         assertEquals("sale", SpamShieldService.suggestion(message))
         assertEquals("", SpamShieldService.suggestion(geoMessage("plain-1", "carol", "a plain question about the mesh")))
+    }
+
+    @Test
+    fun mutingASenderClearsTheirVisibleMessagesAndRestoreBringsThemBack() {
+        val first = publicMessage("pg-1", "bot_p", "bonjour tout le monde").copy(channel = "geo:pg1")
+        val second = publicMessage("pg-2", "bot_p", "oui je suis ici").copy(channel = "geo:pg1")
+        AppStateStore.addChannelMessage("geo:pg1", first)
+        AppStateStore.addChannelMessage("geo:pg1", second)
+        assertEquals(2, AppStateStore.channelMessages.value.getValue("geo:pg1").size)
+
+        // A mute stops future messages. Purging is what clears the spam already on screen, which is
+        // what a user expects when they judge a sender to be a spammer.
+        SpamShieldService.muteSender("bot_p", "bot_p", 30)
+        assertEquals(0, AppStateStore.channelMessages.value.getValue("geo:pg1").size)
+        assertFalse(SpamShieldService.admit(publicMessage("pg-3", "bot_p", "new line from the bot"), "me"))
+
+        SpamShieldService.restoreSender("bot_p", "bot_p")
+        val restored = AppStateStore.channelMessages.value.getValue("geo:pg1")
+        assertEquals(2, restored.size)
+        assertEquals("pg-1", restored[0].id)
+        assertTrue(SpamShieldService.admit(second, "me"))
+    }
+
+    @Test
+    fun purgeIsKeyedToTheSenderSoOrdinaryChatterSurvives() {
+        val kept = publicMessage("pg-4", "innocent", "a plain question about the mesh").copy(channel = "geo:pg2")
+        // Scam text is hidden by content rules in Balanced mode, so the mute follows a real hide.
+        val spam = publicMessage("pg-5", "bot_q", "send 1 get 2 guaranteed profit").copy(channel = "geo:pg2")
+        AppStateStore.addChannelMessage("geo:pg2", kept)
+        assertFalse(SpamShieldService.admit(spam, "me"))
+
+        SpamShieldService.muteSender("bot_q", "bot_q", 30)
+        val channel = AppStateStore.channelMessages.value.getValue("geo:pg2")
+        assertEquals(1, channel.size)
+        assertEquals("pg-4", channel[0].id)
+
+        SpamShieldService.restoreSender("bot_q", "bot_q")
+        assertEquals(1, AppStateStore.channelMessages.value.getValue("geo:pg2").size)
+    }
+
+    @Test
+    fun aRateFilterHideAppliesAutoMuteAndPurgeOnSecondStrike() {
+        SpamShieldPreferences.setAutoMuteMinutes(10)
+        val visible = publicMessage("st-1", "bot_r", "bonjour tout le monde").copy(channel = "geo:st1")
+        AppStateStore.addChannelMessage("geo:st1", visible)
+        assertEquals(1, AppStateStore.channelMessages.value.getValue("geo:st1").size)
+
+        // Two hides recorded from the upstream rate filter. Auto-mute is second-strike, so the
+        // sender is muted and their visible messages are cleared only on the second one.
+        SpamShieldService.recordFilterHide(publicMessage("st-2", "bot_r", "free coins click here"),
+            SpamVerdict.REPEATED_MESSAGE)
+        assertEquals(1, AppStateStore.channelMessages.value.getValue("geo:st1").size)
+        SpamShieldService.recordFilterHide(publicMessage("st-3", "bot_r", "free coins click here"),
+            SpamVerdict.REPEATED_MESSAGE)
+
+        assertEquals(0, AppStateStore.channelMessages.value.getValue("geo:st1").size)
+        assertFalse(SpamShieldService.admit(publicMessage("st-4", "bot_r", "a plain question"), "me"))
+        SpamShieldService.restoreSender("bot_r", "bot_r")
+        assertEquals(1, AppStateStore.channelMessages.value.getValue("geo:st1").size)
+        assertTrue(SpamShieldService.admit(publicMessage("st-5", "bot_r", "a plain question"), "me"))
     }
 
     private fun publicMessage(id: String, sender: String, content: String) = BitchatMessage(

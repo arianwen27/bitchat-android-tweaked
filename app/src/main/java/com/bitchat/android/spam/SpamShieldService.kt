@@ -2,6 +2,7 @@ package com.bitchat.android.spam
 
 import android.content.Context
 import com.bitchat.android.model.BitchatMessage
+import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.model.BitchatMessageType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +24,8 @@ object SpamShieldService {
     private const val MAX_MEMOIZED_VERDICTS = 600
     private const val MAX_ALLOWED_IDS = 200
     private const val MAX_FLAGGED = 300
+    private const val MAX_REMOVED_PER_SENDER = 60
+    private const val MAX_REMOVAL_LOG = 100
     private const val SPAMMER_MUTE_MINUTES = 60
     private const val SPAMMER_REPUTATION_PENALTY = 8
 
@@ -32,6 +35,7 @@ object SpamShieldService {
     private val _hidden = MutableStateFlow<List<SpamHit>>(emptyList())
     private val _flaggedIds = MutableStateFlow<Set<String>>(emptySet())
     private val _hiddenTotal = MutableStateFlow(0)
+    private val removalLog = LinkedHashMap<String, List<Pair<String?, BitchatMessage>>>(64, 0.75f, true)
 
     /** Hidden messages kept in memory only, newest first, for the review sheet. */
     val hidden: StateFlow<List<SpamHit>> = _hidden.asStateFlow()
@@ -62,7 +66,16 @@ object SpamShieldService {
             SpamVerdict.REPEATED_ACROSS_USERS -> SpamSignal.CrossSenderRepeat
             SpamVerdict.REPEATED_CHARACTERS -> SpamSignal.CharRun
         }
-        recordHidden(message, message.channel ?: MESH_SCOPE, keyOf(message), message.sender, setOf(signal), 60)
+        val senderKey = keyOf(message)
+        recordHidden(message, message.channel ?: MESH_SCOPE, senderKey, message.sender, setOf(signal), 60)
+        // Auto-mute and purge must not depend on which engine made the hide. The upstream rate filter
+        // hides on its own, so its verdicts feed the same second-strike rule the shield uses.
+        val expiry = shield.contentStrike(setOf(signal), senderKey, message.sender, System.currentTimeMillis(),
+            SpamShieldPreferences.policy())
+        if (expiry > 0L) {
+            SpamShieldPreferences.saveMutes(shield.mutedSenders(System.currentTimeMillis()))
+            purgeSender(senderKey)
+        }
     }
     fun init(context: Context) {
         SpamShieldPreferences.init(context)
@@ -130,6 +143,7 @@ object SpamShieldService {
                         verdict.score
                     )
                     SpamShieldPreferences.saveMutes(shield.mutedSenders(nowMs))
+                    if (verdict.mutedUntilMs > 0L) purgeSender(senderKey)
                     false
                 }
 
@@ -176,11 +190,32 @@ object SpamShieldService {
     @Synchronized
     fun hiddenCount(scopeKey: String): Int = _hidden.value.count { it.scopeKey == scopeKey }
 
+    /**
+     * Pulls the visible messages of a sender out of the timelines, keeping copies for restore.
+     *
+     * A mute stops future messages, so the first posts of a bot stay on screen. Purging when a
+     * sender is muted means the judgement of the user clears what they can see. The copies live in
+     * memory for this session only, are never persisted, and restoring trust puts them back.
+     */
+    @Synchronized
+    fun purgeSender(senderKey: String): Int {
+        val key = senderKey.lowercase()
+        val removed = AppStateStore.removeMessagesFromSender(key)
+        if (removed.isEmpty()) return 0
+        removalLog[key] = removed.takeLast(MAX_REMOVED_PER_SENDER)
+        while (removalLog.size > MAX_REMOVAL_LOG) {
+            val oldest = removalLog.keys.first()
+            removalLog.remove(oldest)
+        }
+        return removed.size
+    }
+
     /** Mute a sender from the review sheet, persisting the expiry. */
     @Synchronized
     fun muteSender(senderKey: String, senderLabel: String, minutes: Int): Long {
         val nowMs = System.currentTimeMillis()
         val expiry = shield.mute(senderKey, senderLabel, nowMs, minutes)
+        purgeSender(senderKey)
         SpamShieldPreferences.saveMutes(shield.mutedSenders(nowMs))
         return expiry
     }
@@ -197,6 +232,7 @@ object SpamShieldService {
         val nowMs = System.currentTimeMillis()
         shield.penalize(senderKey, SPAMMER_REPUTATION_PENALTY, nowMs)
         val expiry = shield.mute(senderKey, senderLabel, nowMs, minutes)
+        purgeSender(senderKey)
         SpamShieldPreferences.saveMutes(shield.mutedSenders(nowMs))
         return expiry
     }
@@ -216,6 +252,7 @@ object SpamShieldService {
         hits.forEach { it.message.id.let { id -> allowId(id); verdicts[id] = ShieldVerdict.Clean } }
         _hidden.value = _hidden.value.filterNot { it.senderKey == key }
         _flaggedIds.update { ids -> ids - hits.map { it.message.id }.toSet() }
+        AppStateStore.replayMessages(removalLog.remove(key).orEmpty())
         SpamShieldPreferences.saveMutes(shield.mutedSenders(System.currentTimeMillis()))
         return dropped
     }
@@ -226,6 +263,7 @@ object SpamShieldService {
         shield.reset()
         verdicts.clear()
         allowedIds.clear()
+        removalLog.clear()
         _hidden.value = emptyList()
         _hiddenTotal.value = 0
         _flaggedIds.value = emptySet()
