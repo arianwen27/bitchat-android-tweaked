@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.spam.SpamFilter
+import com.bitchat.android.spam.SpamShieldService
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -114,10 +115,18 @@ class GeohashMessageHandler(
                         if (hasNonce) NostrProofOfWork.calculateDifficulty(event.id).takeIf { it > 0 } else null
                     } catch (_: Exception) { null }
                 )
+                val key = SpamFilter.nostrSenderKey(pubkey)
                 val hide = withContext(spamFilterDispatcher) {
-                    SpamFilter.shared.shouldHide(msg, SpamFilter.nostrSenderKey(pubkey))
+                    SpamFilter.shared.shouldHide(msg, key)
                 }
                 if (hide) {
+                    // The filter has no ledger, and this path bypasses IncomingMessageAdmission, so
+                    // without a record a geochat hide is invisible: no count, no review, no reveal.
+                    // The verdict is memoized by message id, so recording does not charge the sender
+                    // twice. Recording is bookkeeping, never a reason to admit spam.
+                    runCatching {
+                        SpamShieldService.recordFilterHide(msg, SpamFilter.shared.check(msg, key))
+                    }
                     Log.d(TAG, "Hiding geohash spam ${event.id.take(8)}...")
                     return@launch
                 }

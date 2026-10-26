@@ -75,7 +75,7 @@ The fork adds what upstream does not provide:
   strikes, and replays their hidden messages. It is not a whitelist: the same rules apply to
   their next message.
 - **Translations for hidden text**, so a hidden message in a foreign language can be read.
-- **Coverage of the location-channel path.** Nostr geohash messages reach the channel store directly, not through the transport admission gate, so the rate, repeat, link and character-run rules also run inside the content shield. The upstream filter sees mesh traffic; it does not see relay messages, so a geochat flood is scored by the shield.
+- **Coverage of the location-channel path.** Nostr geohash messages reach the channel store directly, not through the transport admission gate, so the rate, repeat, link and character-run rules also run inside the content shield. The upstream filter sees mesh traffic; it does not see relay messages, so a geochat flood is scored by the shield. Hides from either engine are recorded in the fork ledger, so the count, the review sheet, the translations and the sender actions cover decisions made by the upstream filter as well as the shield.
 - **Long-press actions follow the master switch**, so Mark as spammer and Restore to default trust appear whenever the Spam Filter switch is on.
 - **Second-strike auto-mute**, off by default, applied only to content signals. Rate and
   reputation alone never mute anyone, and auto-mutes never extend themselves.

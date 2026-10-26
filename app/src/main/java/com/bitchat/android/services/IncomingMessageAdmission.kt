@@ -66,7 +66,11 @@ internal object IncomingMessageAdmission {
         if (SpamFilter.isLocalNotice(message)) return false
         val key = SpamFilter.meshSenderKey(message)
     val hide = SpamFilter.shared.shouldHide(message, key)
-    if (hide) SpamShieldService.recordFilterHide(message, SpamFilter.shared.check(message, key))
+    if (hide) {
+        // Recording is bookkeeping, never a reason to let a hidden message through. Without the
+        // guard, a recording failure propagates to the caller's catch and admits the spam.
+        runCatching { SpamShieldService.recordFilterHide(message, SpamFilter.shared.check(message, key)) }
+    }
     return hide
     }
 }

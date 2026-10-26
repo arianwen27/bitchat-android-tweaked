@@ -99,7 +99,8 @@ fun SpamShieldSettingsSection(onOpenReview: () -> Unit, modifier: Modifier = Mod
                 stringResource(R.string.spam_mute_60),
                 stringResource(R.string.spam_mute_180)
             ),
-            selectedIndex = listOf(0, 10, 30, 60, 180).indexOf(autoMute).coerceAtLeast(1),
+            // Never is index 0 and a valid choice, so the highlight must not be forced up.
+            selectedIndex = listOf(0, 10, 30, 60, 180).indexOf(autoMute).coerceAtLeast(0),
             enabled = enabled,
             onSelect = { index -> SpamShieldPreferences.setAutoMuteMinutes(listOf(0, 10, 30, 60, 180)[index]) }
         )

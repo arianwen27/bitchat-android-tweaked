@@ -33,6 +33,18 @@ One switch governs both engines: the upstream Spam Filter row is the master, and
 
 The rate, repeat, link and character-run rules are back in `SpamShield`, because Nostr geohash messages enter through `GeohashMessageHandler` into `AppStateStore.addChannelMessage` and never pass through `IncomingMessageAdmission`, where the upstream filter runs. Deleting the duplicated rules left the location channels with no rate or repeat coverage, which is what a geochat flood needs. Mesh traffic is scored by both gates, in order, and verdicts are memoized by message id so a relayed message is charged once. The long-press Mark as spammer and Restore to default trust rows follow `SpamFilterPreferences.enabled` together with `SpamFilterPreferences`, not the shield flag that settings no longer writes.
 
+**Upstream hides are recorded in the fork ledger from both gates.** IncomingMessageAdmission records
+filter verdicts as labels, and GeohashMessageHandler records its own, because relay messages never
+reach IncomingMessageAdmission. Recording is wrapped in runCatching: a bookkeeping failure must not
+admit a hidden message, since the admission call sits inside a try block whose catch admits public
+traffic. Verdicts are memoized by message id, so recording does not charge a sender rate budget twice.
+Live check: 35 geohash hide log lines in 70 seconds, with the bar count rising from 118 to 155 in the
+same window and no translation failures.
+
+**Auto-mute Never is selectable.** The chip row highlighted the index from indexOf(autoMute) with a
+floor of 1, which forced Never (index 0) to display as 10 min. The floor is now 0. Tapping Never on
+the emulator writes auto_mute_minutes = 0 to spam_shield_v1.xml and the chip stays highlighted.
+
 ## Surfaces the fork adds
 
 - **Count + review sheet.** Hidden messages live in memory only, newest first: sender, time,
