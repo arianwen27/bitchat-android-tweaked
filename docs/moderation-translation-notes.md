@@ -161,6 +161,22 @@ left by purging one of three interleaved senders, and the exact rebuilt order af
   `\u` escapes, because encoding passes destroyed literal characters (which silently disabled
   Cyrillic scam-phrase matching and Slavic detection). `strings.xml` typography uses entities.
 
+## Upstream merge (19 commits, `e8b91184`)
+
+Merged upstream `main` cleanly: packet payload caps (`PacketPayloadLimits` + docs + wire
+contract test), concurrent security cache and relay snapshots, minified release scanner
+initialization, iOS-ported geohash DM / payload cap / panic-confirm fixes, geohash chat
+auto-scroll follow, verification sheet stacking, wear swipe-right app menu, and completed
+locale resources. `ChatScreen.kt`, `ChatViewModel.kt`, `MessageComponents.kt`, `strings.xml`
+and the verification metadata auto-merged; the only conflict was `app/gradle.lockfile`,
+resolved by taking upstream's lockfile and re-running `--write-locks` so
+`com.google.mlkit:translate` is locked again. `:wear:assembleDebug` and
+`:wear:testDebugUnitTest` pass; merged tests (payload limits, relay snapshot, embedded
+bitchat, file clear-all, messages-list follow, security manager) all pass. Full suite:
+850 tests, 25 failures, all in the known baseline families. Behaviour on the emulator
+after the merge: injected rotating shouts - first two admitted and visible, third onwards
+hidden, bar count tracking messages hidden right now, translation label intact.
+
 ## Commits
 
 Fork `main`: `ae11b9d9` feature, `e8e441b1` word walls + shout flood + count = ledger size +
