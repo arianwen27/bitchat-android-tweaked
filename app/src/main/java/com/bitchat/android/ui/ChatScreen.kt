@@ -315,20 +315,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
             val showNotesStrip =
                 isMeshTimeline && nearbyNotesRevealed && nearbyNotes.isNotEmpty()
 
-            if (moderationVisible) {
-                ModerationBar(
-                    hiddenCount = spamHiddenCount,
-                    targetLangLabel = translationTargetLang?.let { TranslationLanguageCatalog.labelFor(it) },
-                    onReviewClick = { viewModel.showSpamReview() },
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .onSizeChanged { size ->
-                            moderationBarHeight = with(density) { size.height.toDp() }
-                        }
-                )
-            }
-
             MessagesList(
 
                 messages = displayMessages,
@@ -340,7 +326,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 translationTargetLang = translationTargetLang,
 
                 contentPadding = PaddingValues(
-                    top = statusBarHeight + headerHeight + (if (moderationVisible) moderationBarHeight else 0.dp) +
+                    top = statusBarHeight + headerHeight + (if (moderationVisible) moderationBarHeight + 12.dp else 0.dp) +
                         (if (showNotesStrip) notesStripHeight else 0.dp),
                     bottom = composerHeight
                 ),
@@ -405,6 +391,25 @@ fun ChatScreen(viewModel: ChatViewModel) {
                         .onSizeChanged { size ->
                             notesStripHeight = with(density) { size.height.toDp() }
                         },
+                )
+            }
+
+            // The moderation bar is drawn after the conversation so that its tap target sits above
+            // the message list, in the reserved padding at the top of the timeline. Placing it before
+            // MessagesList let the list draw over it, so the row was visible through the gaps and a tap
+            // on Review never reached the bar.
+            if (moderationVisible) {
+                ModerationBar(
+                    hiddenCount = spamHiddenCount,
+                    targetLangLabel = translationTargetLang?.let { TranslationLanguageCatalog.labelFor(it) },
+                    onReviewClick = { viewModel.showSpamReview() },
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = statusBarHeight + headerHeight)
+                        .fillMaxWidth()
+                        .onSizeChanged { size ->
+                            moderationBarHeight = with(density) { size.height.toDp() }
+                        }
                 )
             }
 

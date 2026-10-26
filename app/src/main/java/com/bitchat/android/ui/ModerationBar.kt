@@ -43,7 +43,9 @@ fun ModerationBar(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
-            .background(colorScheme.surfaceVariant.copy(alpha = 0.72f))
+            // Solid, not translucent: the bar sits on top of the timeline, so a see-through row let the
+            // message text underneath bleed through the count and the language label.
+            .background(colorScheme.surface.copy(alpha = 0.97f))
             .then(if (hiddenCount > 0) Modifier.clickable(onClick = onReviewClick) else Modifier)
             .padding(horizontal = 16.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
