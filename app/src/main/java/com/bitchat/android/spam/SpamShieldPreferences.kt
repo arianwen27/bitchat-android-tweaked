@@ -70,7 +70,7 @@ object SpamShieldPreferences {
 
     /** Settings folded into a policy. The master switch wins over the chosen sensitivity. */
     fun policy(): SpamPolicy = SpamPolicy(
-        mode = if (_enabled.value) _mode.value else SpamMode.Off,
+        mode = if (SpamFilterPreferences.enabled.value) _mode.value else SpamMode.Off,
         blocklist = _blocklist.value,
         autoMuteMinutes = _autoMuteMinutes.value,
         requireProofOfWorkInGeohash = _requireProofOfWork.value
@@ -78,6 +78,7 @@ object SpamShieldPreferences {
 
     fun setEnabled(value: Boolean) {
         _enabled.value = value
+        SpamFilterPreferences.setEnabled(value)
         write { it.edit().putBoolean(KEY_ENABLED, value).apply()}
     }
 

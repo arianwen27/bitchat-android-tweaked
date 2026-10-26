@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.bitchat.android.R
 import com.bitchat.android.spam.SpamMode
 import com.bitchat.android.spam.SpamShieldPreferences
+import com.bitchat.android.spam.SpamFilterPreferences
 import com.bitchat.android.spam.SpamShieldService
 import com.bitchat.android.translate.TranslationDisplayMode
 import com.bitchat.android.translate.TranslationEngineMode
@@ -52,7 +53,7 @@ import com.bitchat.android.ui.theme.BitchatFontFamily
 @Composable
 fun SpamShieldSettingsSection(onOpenReview: () -> Unit, modifier: Modifier = Modifier) {
     val colorScheme = MaterialTheme.colorScheme
-    val enabled by SpamShieldPreferences.enabled.collectAsState()
+    val enabled by SpamFilterPreferences.enabled.collectAsState()
     val mode by SpamShieldPreferences.mode.collectAsState()
     val autoMute by SpamShieldPreferences.autoMuteMinutes.collectAsState()
     val flagVisible by SpamShieldPreferences.flagVisible.collectAsState()
@@ -69,11 +70,11 @@ fun SpamShieldSettingsSection(onOpenReview: () -> Unit, modifier: Modifier = Mod
     ) {
         SectionLabel(stringResource(R.string.moderation_section_spam))
 
-        SwitchRow(
-            title = stringResource(R.string.spam_toggle_title),
-            subtitle = stringResource(R.string.spam_toggle_subtitle),
-            checked = enabled,
-            onChange = { SpamShieldPreferences.setEnabled(it) }
+        Text(
+            text = stringResource(R.string.spam_master_note),
+            fontFamily = BitchatFontFamily,
+            fontSize = 12.sp,
+            color = colorScheme.onSurfaceVariant
         )
 
         ChipLabel(stringResource(R.string.spam_sensitivity_title))

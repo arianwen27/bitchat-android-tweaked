@@ -44,19 +44,19 @@ This project is released into the public domain. See the [LICENSE](LICENSE.md) f
 - **Tor Support**: Built-in Tor (Arti) for private internet connectivity
 - **Emergency Wipe**: Triple-tap to instantly clear all data
 - **Cross-Platform**: Binary protocol compatible with bitchat on iOS and macOS
-- **Content Spam Shield**: opt-in, on-device content scoring for public and location channels. Repeats, floods, link spam, forwarded chains, scam phrasing and blocked phrases are scored locally; hidden messages never reach the timeline, notifications, history, or storage, and every hide is reviewable and revealable.
+- **Content Spam Shield**: on-device content scoring behind the upstream Spam Filter switch for public and location channels. Repeats, floods, link spam, forwarded chains, scam phrasing and blocked phrases are scored locally; hidden messages never reach the timeline, notifications, history, or storage, and every hide is reviewable and revealable.
 - **In-App Auto Translation**: translated text under the original in any channel, on-device via ML Kit by default, with a self-hosted LibreTranslate endpoint as an option. Per-channel target and source language, and translation of hidden spam for review.
 
 ## Fork additions: content moderation and in-app translation
 
-Two opt-in features on top of the upstream client. Neither changes the packet format, transport,
-identity, PoW requirement, or any protocol behaviour. Both are off by default and both are
+Two features on top of the upstream client. Neither changes the packet format, transport,
+identity, PoW requirement, or any protocol behaviour. There is one spam switch: the upstream Spam Filter row, which the fork rules ride on. Translation is off until you enable it. Both are
 local-first.
 
 ### Content Spam Shield
 
 Every public and channel message passes one admission point before it can reach a timeline, notify,
-badge, persist, or reach the UI. Two engines run in order at that point:
+badge, persist, or reach the UI. The upstream Spam Filter switch is the master: when it is off, nothing is scored. When it is on, two engines run in order at that point:
 
 1. **Upstream rate and repetition filter** - per-sender token budget, characters per minute, links
    per minute, similarity against a sender's own history, similarity across senders, and long

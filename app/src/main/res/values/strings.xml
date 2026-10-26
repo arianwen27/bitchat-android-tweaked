@@ -661,7 +661,8 @@
   <string name="about_system_default">System default</string>
   <string name="about_select_language">Select language</string>
   <!-- Local spam shield: settings, review sheet, and signal labels -->
-  <string name="moderation_section_spam">Spam shield</string>
+  <string name="moderation_section_spam">Spam filter content rules</string>
+    <string name="spam_master_note">Uses the Spam Filter switch in Settings. The rules below score message text on this device, on top of the rate and repeat checks.</string>
   <string name="moderation_section_translation">Auto translation</string>
   <string name="spam_toggle_title">Block spam in public channels</string>
   <string name="spam_toggle_subtitle">Scores message text on this device: repeats, floods, links, forwarded chains, and phrases you block. Private chats are never read.</string>
