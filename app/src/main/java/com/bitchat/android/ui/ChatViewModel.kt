@@ -4,6 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.AndroidViewModel
+import com.bitchat.android.spam.SpamFilterPreferences
 import com.bitchat.android.spam.SpamShieldPreferences
 import com.bitchat.android.spam.SpamShieldService
 import com.bitchat.android.translate.TranslationStore
@@ -1745,7 +1746,11 @@ class ChatViewModel(
     val showSpamReviewSheet: StateFlow<Boolean> = state.showSpamReview
 
     /** Shield state, so the action sheet only offers spam actions when the shield is on. */
-    val spamShieldEnabled: StateFlow<Boolean> = SpamShieldPreferences.enabled
+    // The long-press Mark as spammer and Restore to default trust rows belong to the spam gate, so
+    // they follow the single master switch. The shield's own enabled flag is no longer settable from
+    // settings (the master row governs both engines), and gating the rows on it made them disappear:
+    // it defaults false and nothing writes it any more.
+    val spamShieldEnabled: StateFlow<Boolean> = SpamFilterPreferences.enabled
 
     /**
      * Mark a sender as a spammer, by explicit user judgement, from the message action sheet.

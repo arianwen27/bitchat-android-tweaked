@@ -31,6 +31,8 @@ Auto-mute is second-strike, content-only, never extends itself, default off.
 
 One switch governs both engines: the upstream Spam Filter row is the master, and the fork content rules score only when it is on. The fork section has no toggle of its own, so the settings sheet shows one switch, then the content rules under it. `SpamShieldPreferences.setEnabled` mirrors the upstream flag, and `policy()` reads it.
 
+The rate, repeat, link and character-run rules are back in `SpamShield`, because Nostr geohash messages enter through `GeohashMessageHandler` into `AppStateStore.addChannelMessage` and never pass through `IncomingMessageAdmission`, where the upstream filter runs. Deleting the duplicated rules left the location channels with no rate or repeat coverage, which is what a geochat flood needs. Mesh traffic is scored by both gates, in order, and verdicts are memoized by message id so a relayed message is charged once. The long-press Mark as spammer and Restore to default trust rows follow `SpamFilterPreferences.enabled` together with `SpamFilterPreferences`, not the shield flag that settings no longer writes.
+
 ## Surfaces the fork adds
 
 - **Count + review sheet.** Hidden messages live in memory only, newest first: sender, time,
