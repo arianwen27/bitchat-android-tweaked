@@ -962,17 +962,35 @@ object AppStateStore {
                     val list = _publicMessages.value
                     if (list.any { it.id == msg.id }) continue
                     retainedPublicMessageIds.add(msg.id)
-                    _publicMessages.value = appendPublicMessage(list, msg)
+                    _publicMessages.value = insertMessageChronologically(list, msg)
                 } else {
                     val list = channels[channel].orEmpty()
                     if (list.any { it.id == msg.id }) continue
-                    channels[channel] = appendPublicMessage(list, msg)
+                    channels[channel] = insertMessageChronologically(list, msg)
                 }
                 count++
             }
             _channelMessages.value = channels
             return count
         }
+    }
+
+    /**
+     * Put a restored message back at its own time, not at the end of the timeline.
+     *
+     * Restoring a sender replays several messages that were interleaved with other people's, so
+     * appending puts them in one clump at the newest position with gaps where they belonged. The
+     * timelines are ordered oldest to newest by message timestamp, so insertion is at the first
+     * message that is at or after this one.
+     */
+    private fun insertMessageChronologically(
+        messages: List<BitchatMessage>,
+        message: BitchatMessage,
+    ): List<BitchatMessage> {
+        if (messages.isEmpty()) return listOf(message)
+        val index = messages.indexOfFirst { it.timestamp >= message.timestamp }
+        if (index < 0) return messages + message
+        return messages.subList(0, index) + message + messages.subList(index, messages.size)
     }
 
     private fun senderKeyOf(message: BitchatMessage): String =
