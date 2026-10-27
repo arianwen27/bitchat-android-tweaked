@@ -34,6 +34,9 @@ object SpamShieldService {
     private val allowedIds = LinkedHashSet<String>()
     private val _hidden = MutableStateFlow<List<SpamHit>>(emptyList())
     private val _flaggedIds = MutableStateFlow<Set<String>>(emptySet())
+    // Engine that flagged a message, so a visible row can name it: a suspicious marker that says
+    // nothing about who decided it is the same silent-hide problem the ledger solves.
+    private val flaggedSourceIds = LinkedHashMap<String, SpamSource>(64, 0.75f, true)
 
     private val removalLog = LinkedHashMap<String, List<AppStateStore.PurgedEntry>>(64, 0.75f, true)
 
@@ -149,7 +152,7 @@ object SpamShieldService {
                 }
 
                 is ShieldVerdict.Flagged -> {
-                    recordFlag(id)
+                    recordFlag(id, SpamSource.ContentRules)
                     true
                 }
 
@@ -163,6 +166,9 @@ object SpamShieldService {
     /** Verdict recorded for a message, so the UI can mark a flagged row. */
     fun verdictFor(messageId: String): ShieldVerdict? = synchronized(this) { verdicts[messageId] }
 
+    /** Which engine marked a visible row as suspicious, so the marker can name it. */
+    fun engineFor(messageId: String): SpamSource? = synchronized(this) { flaggedSourceIds[messageId] }
+
     /**
      * Re-admit a hidden message and return it for the caller to replay into the timeline.
      *
@@ -174,6 +180,7 @@ object SpamShieldService {
         val hit = _hidden.value.firstOrNull { it.message.id == messageId } ?: return null
         allowId(messageId)
         verdicts[messageId] = ShieldVerdict.Clean
+        flaggedSourceIds.remove(messageId)
         _hidden.value = _hidden.value.filterNot { it.message.id == messageId }
         return hit.message
     }
@@ -184,6 +191,7 @@ object SpamShieldService {
         val hits = _hidden.value.filter { it.scopeKey == scopeKey }
         hits.forEach { allowId(it.message.id) }
         hits.forEach { verdicts[it.message.id] = ShieldVerdict.Clean }
+        hits.forEach { flaggedSourceIds.remove(it.message.id) }
         _hidden.value = _hidden.value.filterNot { it.scopeKey == scopeKey }
         return hits.map(SpamHit::message)
     }
@@ -261,6 +269,7 @@ object SpamShieldService {
         hits.forEach { it.message.id.let { id -> allowId(id); verdicts[id] = ShieldVerdict.Clean } }
         _hidden.value = _hidden.value.filterNot { it.senderKey == key }
         _flaggedIds.update { ids -> ids - hits.map { it.message.id }.toSet() }
+        hits.forEach { flaggedSourceIds.remove(it.message.id) }
         AppStateStore.replayMessages(removalLog.remove(key).orEmpty())
         SpamShieldPreferences.saveMutes(shield.mutedSenders(System.currentTimeMillis()))
         return dropped
@@ -276,6 +285,7 @@ object SpamShieldService {
         _hidden.value = emptyList()
 
         _flaggedIds.value = emptySet()
+        flaggedSourceIds.clear()
         SpamShieldPreferences.clearMutes()
     }
 
@@ -314,6 +324,7 @@ object SpamShieldService {
         _hidden.value = (listOf(hit) + _hidden.value).take(MAX_LEDGER)
 
         _flaggedIds.update { it - message.id }
+        flaggedSourceIds.remove(message.id)
     }
 
     private fun allowId(id: String) {
@@ -322,10 +333,14 @@ object SpamShieldService {
         while (allowedIds.size > MAX_ALLOWED_IDS) allowedIds.remove(allowedIds.first())
     }
 
-    private fun recordFlag(id: String) {
+    private fun recordFlag(id: String, source: SpamSource) {
         val next = _flaggedIds.value + id
         _flaggedIds.value =
             if (next.size > MAX_FLAGGED) next.drop(next.size - MAX_FLAGGED).toSet() else next
+        flaggedSourceIds[id] = source
+        while (flaggedSourceIds.size > MAX_FLAGGED) {
+            flaggedSourceIds.remove(flaggedSourceIds.keys.first())
+        }
     }
 
     private fun memoize(id: String, verdict: ShieldVerdict) {

@@ -210,3 +210,52 @@ Fork `main`: `ae11b9d9` feature, `e8e441b1` word walls + shout flood + count = l
 capped hidden translation, `15a1abbd` string repair + ASCII-safe literals, `a3b9acee` neutral
 test tokens, `1930f0a3` ignore Gradle daemon file, `fe559413` merge of 13 upstream commits,
 `b01720ef` `ShieldVerdict` rename, `9e0faf7e` upstream verdicts recorded into the fork ledger.
+
+## Making the content rules testable
+
+`SpamShieldPreferences.enabled` defaults false, so `policy()` returns `Off` and
+`SpamShieldService.admit` short-circuits: the content rules never score, so nothing is
+recorded and the review sheet shows nothing. The switch that turns them on lived on the About
+**Info** tab, while the master `Spam Filter` row is on the **Settings** tab, so the pair was
+easy to miss. The content rules section now sits directly under the master row on Settings.
+
+A test agent that injected synthetic messages through `inject_msg` saw every rate-filter hide
+recorded (`official filter`) and no content-rule rows, and inferred that the shield was hiding
+them. That inference is not supported: the ledger is the only observable, and the
+`your judgement` rows it could see are produced by `purgeSender`, which is switch-independent.
+With the content switch on, the same injections are hidden and labelled `content rules`.
+
+Three fixes:
+
+- `SpamShieldPreferences` cached the private store and every setter wrote through it. A failed
+  `init` left the cache null, so `setEnabled` became a silent no-op: the switch appeared to
+  work, nothing persisted, and the next session was Off again. The store is opened on demand
+  from the application context.
+- `SpamReviewSheet.signalLabel()` had two identical `ShoutFlood` branches, so the second was
+  unreachable.
+- Engine attribution now names the engine on a visible flagged row. `recordFlag` stores the
+  `SpamSource` per message id, `SpamShieldService.engineFor` exposes it, and
+  `spam_flag_marker_engine` prints `Spam shield: suspicious from content rules`. Rows the
+  upstream filter would have hidden under the debug bypass are named `official filter` in
+  `spam_bypass_marker`, because the shield records nothing for those.
+
+Debug-only adb hooks drive the gate without tapping the UI: `spam_setup` sets both switches
+(master, content, mode, auto-mute, flag-visible, PoW, bypass), `spam_state` reports the switches
+plus each ledger row with engine, signals, score, sender, scope and id, `spam_clear` drops the
+ledger, mutes, scores, flags, phrases and translation cache, and `spam_action` runs mark,
+restore, mute, reveal, reveal scope and block phrase. `inject_msg` now reports engine, signals
+and score for the injected id, so a scripted test reads the attribution from logcat. Unit tests
+cover the flagged-row engine, the bypass pairing, and the default-off case that admits
+everything. `IncomingMessageAdmissionTest` resets the shared filter and shield at setup so a
+tuning change leaked from another suite cannot change the expected admission order.
+
+## Verification
+
+- `:app:compileDebugKotlin` (debug source set), `:app:assembleDebug` and `:wear:assembleDebug`
+  pass. `:app:lintDebug` completes under the repo's non-aborting configuration, and the two new
+  strings carry the same `MissingTranslation` errors as the fork's existing English-only strings.
+- Spam and translation suites green: `SpamFilterTest` 44, `SpamShieldTest` 23,
+  `SpamShieldServiceTest` 23, `SpamShieldPreferencesTest` 8, `LanguageProbeTest` 12,
+  `TranslationPreferencesTest` 7, `TranslationStoreTest` 15.
+- `IncomingMessageAdmissionTest` keeps its 6 baseline failures (Robolectric SQLite on Windows).
+  Emulator and Mesh Lab runs remain outstanding for this change; the hooks are debug-only.

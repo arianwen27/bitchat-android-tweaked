@@ -722,6 +722,8 @@
   <string name="spam_signal_pow">no proof-of-work</string>
   <string name="spam_signal_reputation">poor sender history</string>
   <string name="spam_flag_marker">Spam shield: suspicious</string>
+  <string name="spam_flag_marker_engine">Spam shield: suspicious from %1$s</string>
+  <string name="spam_bypass_marker">official filter would hide this: %1$s</string>
   <string name="spam_suggestion">Tap to add the repeated word to your blocklist</string>
   <string name="spam_block_word">Block word %1$s</string>
   <!-- Auto translation -->

@@ -1775,11 +1775,9 @@ class ChatViewModel(
     val showSpamReviewSheet: StateFlow<Boolean> = state.showSpamReview
 
     /** Shield state, so the action sheet only offers spam actions when the shield is on. */
-    // The long-press Mark as spammer and Restore to default trust rows belong to the spam gate, so
-    // they follow the single master switch. The shield's own enabled flag is no longer settable from
-    // settings (the master row governs both engines), and gating the rows on it made them disappear:
-    // it defaults false and nothing writes it any more.
-    val spamShieldEnabled: StateFlow<Boolean> = SpamFilterPreferences.enabled
+    // The action sheet's Mark / Restore rows follow the content rules switch, so they appear
+    // under the same switch as the shield. The master row is upstream's rate filter.
+    val spamShieldEnabled: StateFlow<Boolean> = SpamShieldPreferences.enabled
 
     /**
      * Mark a sender as a spammer, by explicit user judgement, from the message action sheet.

@@ -373,9 +373,6 @@ fun AboutSheet(
                     if (selectedTab == AboutTab.Info) {
                         // What the app is, then how to drive it. Both are reference material a
                         // new user reads once, so they belong on the same tab.
-                        item(key = "moderation_spam") {
-                            SpamShieldSettingsSection(onOpenReview = onShowSpamReview)
-                        }
                         item(key = "moderation_translation") {
                             TranslationSettingsSection(currentConversationKey = translationConversationKey)
                         }
@@ -604,6 +601,10 @@ fun AboutSheet(
                                         checked = spamFilterEnabled,
                                         onCheckedChange = { SpamFilterPreferences.setEnabled(it) }
                                     )
+                                    // Fork content rules sit under the master row, so the switch that gates them
+                                    // is visible next to the switch that gates the rate rules.
+                                    SpamShieldSettingsSection(onOpenReview = onShowSpamReview)
+
 
                                     HorizontalDivider(
                                         modifier = Modifier.padding(start = 54.dp),

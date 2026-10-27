@@ -9,6 +9,8 @@ import android.net.Uri
 import androidx.compose.material.icons.Icons
 import com.bitchat.android.spam.SpamShieldPreferences
 import com.bitchat.android.spam.SpamShieldService
+import com.bitchat.android.spam.SpamSource
+import androidx.annotation.StringRes
 import com.bitchat.android.translate.TranslationDisplayMode
 import com.bitchat.android.translate.TranslationPreferences
 import com.bitchat.android.translate.TranslationRecord
@@ -490,6 +492,7 @@ fun MessageItem(
     val replaceBody = translated != null && translationDisplay == TranslationDisplayMode.Replace
     val showTranslationBelow = translated != null && translationDisplay == TranslationDisplayMode.Below
     val flagged = message.id in flaggedIds
+    val flaggedEngine = if (flagged) SpamShieldService.engineFor(message.id) else null
 
 
     Column(
@@ -501,7 +504,12 @@ fun MessageItem(
     ) {
         if (flagged) {
             Text(
-                text = stringResource(R.string.spam_flag_marker),
+                text = if (flaggedEngine != null) {
+                    stringResource(
+                        R.string.spam_flag_marker_engine,
+                        stringResource(spamEngineLabelRes(flaggedEngine))
+                    )
+                } else stringResource(R.string.spam_flag_marker),
                 fontFamily = BitchatFontFamily,
                 fontSize = 12.sp,
                 color = colorScheme.error,
@@ -590,7 +598,10 @@ fun MessageItem(
 
         if (spamVerdict != null) {
             Text(
-                text = "spam filter would hide this: ${spamVerdict.debugLabel()}",
+                text = stringResource(
+                    R.string.spam_bypass_marker,
+                    spamVerdict.debugLabel()
+                ),
                 fontFamily = BitchatFontFamily,
                 fontSize = 11.sp,
                 color = colorScheme.error,
@@ -598,6 +609,14 @@ fun MessageItem(
             )
         }
     }
+}
+
+/** Engine label for a suspicious marker, so a visible row says who marked it. */
+@StringRes
+private fun spamEngineLabelRes(source: SpamSource): Int = when (source) {
+    SpamSource.Official -> R.string.spam_source_official
+    SpamSource.ContentRules -> R.string.spam_source_content
+    SpamSource.UserJudgement -> R.string.spam_source_user
 }
 
 private fun SpamVerdict.debugLabel(): String = when (this) {

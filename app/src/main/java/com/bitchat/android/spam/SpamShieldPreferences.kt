@@ -52,11 +52,15 @@ object SpamShieldPreferences {
     val blocklist: StateFlow<List<String>> = _blocklist.asStateFlow()
 
     private var prefs: SharedPreferences? = null
+    // Kept so a setting write can re-open the store after an init that threw, which previously made
+    // every setter a silent no-op: a switch appeared to work and nothing was persisted.
+    private var appContext: Context? = null
 
     fun init(context: Context) {
-        val store = prefs ?: context.applicationContext
-            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .also { prefs = it }
+        appContext = context.applicationContext
+        val store = store() ?: return
+
+
         _enabled.value = store.getBoolean(KEY_ENABLED, DEFAULT_ENABLED)
         _mode.value = runCatching {
             SpamMode.valueOf(store.getString(KEY_MODE, DEFAULT_MODE.name) ?: DEFAULT_MODE.name)
@@ -144,7 +148,7 @@ object SpamShieldPreferences {
     }
 
     fun loadMutes(): Map<String, Long> {
-        val raw = prefs?.getString(KEY_MUTES, null) ?: return emptyMap()
+        val raw = store()?.getString(KEY_MUTES, null) ?: return emptyMap()
         return runCatching {
             val json = org.json.JSONObject(raw)
             buildMap {
@@ -178,8 +182,17 @@ object SpamShieldPreferences {
         }.take(MAX_PHRASES)
     }.getOrDefault(emptyList())
 
+    /** Opens the private store on demand, so a setter cannot silently do nothing after a failed init. */
+    private fun store(): SharedPreferences? {
+        prefs?.let { return it }
+        val context = appContext ?: return null
+        return context.applicationContext
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .also { prefs = it }
+    }
+
     private fun write(block: (SharedPreferences) -> Unit) {
-        val store = prefs ?: return
+        val store = store() ?: return
         block(store)
     }
 }

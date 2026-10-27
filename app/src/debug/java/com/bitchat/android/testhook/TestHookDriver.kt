@@ -25,6 +25,16 @@ import com.bitchat.android.service.MeshServiceHolder
 import com.bitchat.android.service.TransportBridgeService
 import com.bitchat.android.services.AppStateStore
 import com.bitchat.android.services.IncomingMessageAdmission
+import com.bitchat.android.R
+import com.bitchat.android.spam.ShieldVerdict
+import com.bitchat.android.spam.SpamFilter
+import com.bitchat.android.spam.SpamFilterPreferences
+import com.bitchat.android.spam.SpamMode
+import com.bitchat.android.spam.SpamShieldPreferences
+import com.bitchat.android.spam.SpamShieldService
+import com.bitchat.android.spam.SpamSource
+import com.bitchat.android.spam.SpamTuning
+import com.bitchat.android.translate.TranslationStore
 import com.bitchat.android.ui.DataManager
 import com.bitchat.android.ui.PrivateMediaRecipientResolver
 import com.bitchat.android.util.AppConstants
@@ -93,6 +103,10 @@ object TestHookDriver {
             "ptt_send" -> pttSend(context, intent)
             "ptt_recv" -> pttRecv(context, intent)
             "raw_send" -> rawSend(context, intent)
+            "spam_state" -> spamState(context)
+            "spam_setup" -> spamSetup(context, intent)
+            "spam_clear" -> spamClear(context)
+            "spam_action" -> spamAction(context, intent)
         "inject_msg" -> injectMsg(context, intent)
             "ble" -> setBle(intent.getBooleanExtra("enabled", true))
             "inject_peers" -> injectPeers(intent.getStringExtra("peers"))
@@ -253,10 +267,32 @@ object TestHookDriver {
             sender = sender,
             content = content,
             timestamp = Date(),
-            channel = channel
+            channel = channel,
+            isPrivate = intent.getBooleanExtra("private", false),
+            senderPeerID = intent.getStringExtra("peer")
         )
         val admitted = IncomingMessageAdmission.admitToAppState(message)
-        return ok("inject_msg").put("admitted", admitted).put("id", id)
+        val verdict = SpamShieldService.verdictFor(id)
+        val hit = SpamShieldService.hidden.value.firstOrNull { it.message.id == id }
+        val flagged = verdict is ShieldVerdict.Flagged
+        val source = hit?.source ?: if (flagged) SpamSource.ContentRules else null
+        // The engine that hid the injected message, so an adb test can tell a rate-filter hide from a
+        // content-rule hide without opening the review sheet. Injected copies carry no peer id, so the
+        // sender key is the nickname, exactly as the shield keys them.
+        return ok("inject_msg")
+            .put("admitted", admitted)
+            .put("id", id)
+            .put("engine", source?.name?.lowercase() ?: "clean")
+            .put("engine_label", source?.let { engineLabel(context, it) } ?: "clean")
+            .put("score", hit?.score ?: (verdict as? ShieldVerdict.Flagged)?.score ?: 0)
+            .put(
+                "signals",
+                JSONArray(
+                    (hit?.signals ?: (verdict as? ShieldVerdict.Flagged)?.signals ?: emptySet())
+                        .map { it.name.lowercase() }
+                )
+            )
+            .put("flagged", flagged)
     }
 
     private fun broadcastMsg(context: Context, content: String, channel: String?): JSONObject {
@@ -703,6 +739,112 @@ object TestHookDriver {
         val dir = File(context.cacheDir, "testhook/results")
         val count = dir.listFiles()?.count { it.delete() } ?: 0
         return ok("clear_results").put("deleted", count)
+    }
+
+    // MARK: - Spam gate observation (debug only)
+
+    /** Everything the spam gate is configured with, plus the ledger and the flags, for a scripted test. */
+    private fun spamState(context: Context): JSONObject {
+        val rows = JSONArray()
+        SpamShieldService.hidden.value.forEach { hit ->
+            rows.put(
+                JSONObject()
+                    .put("engine", hit.source.name.lowercase())
+                    .put("engine_label", engineLabel(context, hit.source))
+                    .put("signals", JSONArray(hit.signals.map { it.name.lowercase() }))
+                    .put("score", hit.score)
+                    .put("sender", hit.senderLabel)
+                    .put("sender_key", hit.senderKey)
+                    .put("scope", hit.scopeKey)
+                    .put("id", hit.message.id)
+                    .put("content", hit.message.content.take(80))
+            )
+        }
+        val flags = JSONArray()
+        SpamShieldService.flaggedIds.value.forEach { id ->
+            flags.put(JSONObject().put("id", id).put("engine", SpamShieldService.engineFor(id)?.name?.lowercase()))
+        }
+        val bypass = JSONArray()
+        SpamFilter.shared.flagged.value.forEach { (id, verdict) ->
+            bypass.put(JSONObject().put("id", id).put("verdict", verdict.name.lowercase()))
+        }
+        return ok("spam_state")
+            .put("master_filter", SpamFilterPreferences.enabled.value)
+            .put("content_rules", SpamShieldPreferences.enabled.value)
+            .put("mode", SpamShieldPreferences.mode.value.name.lowercase())
+            .put("auto_mute_minutes", SpamShieldPreferences.autoMuteMinutes.value)
+            .put("flag_visible", SpamShieldPreferences.flagVisible.value)
+            .put("require_pow_geohash", SpamShieldPreferences.requireProofOfWork.value)
+            .put("debug_bypass", SpamFilterPreferences.debugBypass.value)
+            .put("blocklist", JSONArray(SpamShieldPreferences.blocklist.value))
+            .put("persisted_mutes", JSONObject(SpamShieldPreferences.loadMutes()))
+            .put("hidden_count", SpamShieldService.hidden.value.size)
+            .put("hidden", rows)
+            .put("flagged", flags)
+            .put("bypass_flagged", bypass)
+    }
+
+    /** Sets both gate switches and the shield options from adb, then reports the state. */
+    private fun spamSetup(context: Context, intent: Intent): JSONObject {
+        SpamFilterPreferences.init(context)
+        SpamShieldPreferences.init(context)
+        val master = intent.getBooleanExtra("master", true)
+        val content = intent.getBooleanExtra("content", true)
+        val mode = intent.getStringExtra("mode")?.let { SpamMode.valueOf(it) } ?: SpamMode.Balanced
+        val autoMute = intent.getIntExtra("auto_mute", 0)
+        val flagVisible = intent.getBooleanExtra("flag_visible", true)
+        val requirePow = intent.getBooleanExtra("require_pow", false)
+        val bypass = intent.getBooleanExtra("debug_bypass", false)
+        SpamFilterPreferences.setEnabled(master)
+        SpamFilterPreferences.setDebugBypass(bypass)
+        SpamShieldPreferences.setEnabled(content)
+        SpamShieldPreferences.setMode(mode)
+        SpamShieldPreferences.setAutoMuteMinutes(autoMute)
+        SpamShieldPreferences.setFlagVisible(flagVisible)
+        SpamShieldPreferences.setRequireProofOfWork(requirePow)
+        if (intent.getBooleanExtra("reset", true)) spamClear(context)
+        return spamState(context).put("cmd", "spam_setup")
+    }
+
+    /** Drops the ledger, mutes, scores, flags, block phrases and translation cache. */
+    private fun spamClear(context: Context): JSONObject {
+        SpamShieldService.reset()
+        SpamShieldPreferences.clearBlockedPhrases()
+        SpamFilter.shared.reset()
+        SpamFilterPreferences.setTuning(SpamTuning.DEFAULT)
+        TranslationStore.clear()
+        return spamState(context).put("cmd", "spam_clear")
+    }
+
+    /** Sender actions, so a scripted test can drive the same actions the review sheet offers. */
+    private fun spamAction(context: Context, intent: Intent): JSONObject {
+        val action = intent.requiredString("action")
+        val key = intent.requiredString("sender_key")
+        val label = intent.getStringExtra("sender") ?: key
+        val minutes = intent.getIntExtra("minutes", 30)
+        val result = when (action) {
+            "mark" -> SpamShieldService.markSpammer(key, label, minutes)
+            "restore" -> SpamShieldService.restoreSender(key, label).toLong()
+            "mute" -> SpamShieldService.muteSender(key, label, minutes)
+            "reveal" -> if (SpamShieldService.reveal(intent.requiredString("id")) != null) 1L else 0L
+            "reveal_scope" -> SpamShieldService.revealScope(intent.requiredString("scope")).size.toLong()
+            "block_phrase" -> if (SpamShieldPreferences.addBlockedPhrase(intent.requiredString("phrase"))) 1L else 0L
+            "remove_phrase" -> {
+                SpamShieldPreferences.removeBlockedPhrase(intent.requiredString("phrase"))
+                1L
+            }
+            else -> return err("spam_action", "unknown action: $action")
+        }
+        return ok("spam_action")
+            .put("action", action)
+            .put("result", result)
+            .put("state", spamState(context))
+    }
+
+    private fun engineLabel(context: Context, source: SpamSource): String = when (source) {
+        SpamSource.Official -> context.getString(R.string.spam_source_official)
+        SpamSource.ContentRules -> context.getString(R.string.spam_source_content)
+        SpamSource.UserJudgement -> context.getString(R.string.spam_source_user)
     }
 
     // MARK: - Helpers

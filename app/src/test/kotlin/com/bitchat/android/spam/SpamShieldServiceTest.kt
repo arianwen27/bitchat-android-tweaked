@@ -14,6 +14,7 @@ import java.util.Date
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 
 /**
@@ -349,6 +350,47 @@ class SpamShieldServiceTest {
         AppStateStore.addChannelMessage("geo:sr2", visible)
         SpamShieldService.markSpammer("bot_src2", "bot_src2")
         assertEquals(SpamSource.UserJudgement, SpamShieldService.hidden.value.first().source)
+    }
+
+    @Test
+    fun aVisibleFlaggedRowNamesTheEngineThatFlaggedIt() {
+        // A flagged row stays visible, so a marker that says nothing about who flagged it leaves the
+        // reader with the same silent decision a hidden row had.
+        val flagged = publicMessage("flag-engine", "flag_sender", "guaranteed profit in one line")
+        assertTrue(SpamShieldService.admit(flagged, "me"))
+        val verdict = SpamShieldService.verdictFor("flag-engine")
+        assertTrue(verdict is ShieldVerdict.Flagged)
+        assertTrue(SpamShieldService.flaggedIds.value.contains("flag-engine"))
+        assertEquals(SpamSource.ContentRules, SpamShieldService.engineFor("flag-engine"))
+
+        SpamShieldService.reset()
+        assertNull(SpamShieldService.engineFor("flag-engine"))
+        assertTrue(SpamShieldService.flaggedIds.value.isEmpty())
+    }
+
+    @Test
+    fun debugBypassFlagsAreNamedByTheOfficialFilterMarkerNotTheShield() {
+        SpamFilterPreferences.init(context)
+        SpamFilterPreferences.setEnabled(true)
+        SpamFilterPreferences.setDebugBypass(true)
+
+        val messages = (1..7).map { index ->
+            publicMessage("bypass-$index", "meshbyp", "flood line pasted again").copy(senderPeerID = "meshbyp")
+        }
+        messages.forEach { message ->
+            SpamFilter.shared.shouldHide(message, SpamFilter.meshSenderKey(message))
+        }
+        // With the bypass on, spam stays visible and is marked, so the official filter names it. The
+        // shield has no record of that row, which is why the bypass marker carries the engine name.
+        assertTrue(SpamFilter.shared.flagged.value.containsKey("bypass-7"))
+        assertFalse(SpamFilter.shared.shouldHide(
+            publicMessage("bypass-8", "meshbyp", "flood line pasted again").copy(senderPeerID = "meshbyp"),
+            SpamFilter.meshSenderKey(messages.first())
+        ))
+        assertNull(SpamShieldService.engineFor("bypass-7"))
+
+        SpamFilterPreferences.setDebugBypass(false)
+        SpamFilter.shared.reset()
     }
 
     private fun publicMessage(id: String, sender: String, content: String) = BitchatMessage(

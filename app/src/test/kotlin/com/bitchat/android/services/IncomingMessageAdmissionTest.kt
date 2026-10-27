@@ -6,6 +6,11 @@ import com.bitchat.android.model.BitchatMessage
 import com.bitchat.android.model.DeliveryStatus
 import com.bitchat.android.ui.ChatState
 import com.bitchat.android.ui.DataManager
+import com.bitchat.android.spam.SpamFilter
+import com.bitchat.android.spam.SpamFilterPreferences
+import com.bitchat.android.spam.SpamShieldPreferences
+import com.bitchat.android.spam.SpamShieldService
+import com.bitchat.android.spam.SpamTuning
 import com.bitchat.android.ui.MessageManager
 import com.bitchat.android.ui.NoiseSessionDelegate
 import com.bitchat.android.ui.PrivateChatManager
@@ -41,6 +46,12 @@ class IncomingMessageAdmissionTest {
             storageCipher = InMemoryConversationStorageCipher()
         )
         repositoriesToClose += repository
+        // The gate is process-wide state, so each test starts from the shipped defaults: a leaked
+        // tuning change or shield mode from another suite must not change the expected admission order.
+        SpamFilter.shared.reset()
+        SpamFilterPreferences.setTuning(SpamTuning.DEFAULT)
+        SpamShieldService.reset()
+        SpamShieldPreferences.resetForTesting()
         AppStateStore.setConversationRepositoryForTest(repository)
         AppStateStore.resumePrivateConversationsAfterPanic()
         AppStateStore.clear()
