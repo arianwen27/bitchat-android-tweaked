@@ -195,6 +195,15 @@ review sheet rows show `muted sender`, `copied by several senders` and `repeat` 
 French text and the `In your language` translation, plus Reveal / Reveal channel /
 Restore trust / Mute / Block phrase.
 
+## Engine attribution in the review sheet
+
+Each hidden row now names the engine that hid it: `official filter` for a verdict from
+upstream's `SpamFilter` (rate, repeat, cross-user copy, links, character run), `content rules`
+for a verdict from the fork's `SpamShield` (block phrases, scam phrases, in-message repetition,
+shout flood, forward chains, PoW, reputation), and `your judgement` for rows created when the
+user marks a spammer and their visible messages are purged. A unit test asserts all three.
+On the emulator, live geohash spam rows show `official filter` alongside the reason label.
+
 ## Commits
 
 Fork `main`: `ae11b9d9` feature, `e8e441b1` word walls + shout flood + count = ledger size +
