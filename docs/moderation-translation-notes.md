@@ -177,6 +177,24 @@ bitchat, file clear-all, messages-list follow, security manager) all pass. Full 
 after the merge: injected rotating shouts - first two admitted and visible, third onwards
 hidden, bar count tracking messages hidden right now, translation label intact.
 
+## Second upstream merge (19 commits, `68326a89`)
+
+Merged upstream `main` again: live geohash activity on the globe picker (`GeohashActivity`,
+`GeohashActivityMonitor`, `GlobeActivityLayer`, `GlobeMarkerAnimator`, `GlobeFlight`),
+geohash message-cap eviction (evict the oldest capped message, not the first to arrive),
+writers counted past the cap, verified event filtering, relay connectivity tracking for the
+globe status chip, globe flight/zoom animation fixes, Mesh Lab hook tolerance for device
+clock skew (`ArrivedMessageMatcher`), plus 13 locale strings in every language. The only
+conflict was `app/src/main/res/values/strings.xml` (our spam/translation strings beside
+upstream's new globe labels) - resolved by keeping both blocks. `GeohashMessageHandler`
+auto-merged and kept the fork's `SpamShieldService.recordFilterHide` wiring.
+`:app:installDebug`, `:wear:assembleDebug` and `:wear:testDebugUnitTest` pass. Full suite:
+918 tests, 25 failures, all in the known baseline families. On the emulator after the merge:
+live geohash channel renders, translation label intact, bar counted 18 hidden messages,
+review sheet rows show `muted sender`, `copied by several senders` and `repeat` labels with
+French text and the `In your language` translation, plus Reveal / Reveal channel /
+Restore trust / Mute / Block phrase.
+
 ## Commits
 
 Fork `main`: `ae11b9d9` feature, `e8e441b1` word walls + shout flood + count = ledger size +
