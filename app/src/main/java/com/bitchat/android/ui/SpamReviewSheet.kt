@@ -37,6 +37,7 @@ import com.bitchat.android.spam.SpamHit
 import com.bitchat.android.spam.SpamShieldPreferences
 import com.bitchat.android.spam.SpamShieldService
 import com.bitchat.android.spam.SpamSignal
+import com.bitchat.android.spam.SpamSource
 import com.bitchat.android.translate.TranslationPreferences
 import com.bitchat.android.translate.TranslationRecord
 import com.bitchat.android.translate.TranslationState
@@ -230,6 +231,13 @@ private fun SpamHitRow(
         }
         // Each reason is its own label, so a hidden message explains itself in the reader's language.
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                    text = stringResource(sourceLabel(hit.source)),
+                    fontFamily = BitchatFontFamily,
+                    fontSize = 12.sp,
+                    color = colorScheme.onSurfaceVariant,
+                    lineHeight = 16.sp
+                )
             hit.signals.forEach { signal ->
                 Text(
                     text = stringResource(signalLabel(signal)),
@@ -313,6 +321,12 @@ private fun SpamHitRow(
             }
         }
     }
+}
+
+private fun sourceLabel(source: SpamSource): Int = when (source) {
+    SpamSource.Official -> R.string.spam_source_official
+    SpamSource.ContentRules -> R.string.spam_source_content
+    SpamSource.UserJudgement -> R.string.spam_source_user
 }
 
 private fun signalLabel(signal: SpamSignal): Int = when (signal) {

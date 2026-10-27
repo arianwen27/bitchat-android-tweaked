@@ -335,6 +335,22 @@ class SpamShieldServiceTest {
         )
     }
 
+    @Test
+    fun sheetLabelsSayWhichEngineHiddenTheMessage() {
+        val contentHide = geoMessage("sr-1", "flood_speaker", "send 1 get 2 guaranteed profit")
+        assertFalse(SpamShieldService.admit(contentHide, "me"))
+        assertEquals(SpamSource.ContentRules, SpamShieldService.hidden.value.first().source)
+
+        val rateHide = publicMessage("sr-2", "bot_src", "free coins click here").copy(channel = "geo:sr")
+        SpamShieldService.recordFilterHide(rateHide, SpamVerdict.REPEATED_MESSAGE)
+        assertEquals(SpamSource.Official, SpamShieldService.hidden.value.first().source)
+
+        val visible = publicMessage("sr-3", "bot_src2", "hello everyone").copy(channel = "geo:sr2")
+        AppStateStore.addChannelMessage("geo:sr2", visible)
+        SpamShieldService.markSpammer("bot_src2", "bot_src2")
+        assertEquals(SpamSource.UserJudgement, SpamShieldService.hidden.value.first().source)
+    }
+
     private fun publicMessage(id: String, sender: String, content: String) = BitchatMessage(
         id = id,
         sender = sender,

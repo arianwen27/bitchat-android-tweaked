@@ -702,6 +702,9 @@
   <string name="spam_block_phrase">Block phrase</string>
 <string name="spam_restore_trust">Restore trust</string>
 <string name="spam_translated_label">In your language</string>
+  <string name="spam_source_official">official filter</string>
+  <string name="spam_source_content">content rules</string>
+  <string name="spam_source_user">your judgement</string>
   <string name="spam_signal_muted">muted sender</string>
   <string name="spam_signal_blocked">blocked phrase</string>
   <string name="spam_signal_repeat">repeat</string>

@@ -67,7 +67,7 @@ object SpamShieldService {
             SpamVerdict.REPEATED_CHARACTERS -> SpamSignal.CharRun
         }
         val senderKey = keyOf(message)
-        recordHidden(message, message.channel ?: MESH_SCOPE, senderKey, message.sender, setOf(signal), 60)
+        recordHidden(message, message.channel ?: MESH_SCOPE, senderKey, message.sender, setOf(signal), 60, SpamSource.Official)
         // Auto-mute and purge must not depend on which engine made the hide. The upstream rate filter
         // hides on its own, so its verdicts feed the same second-strike rule the shield uses.
         val expiry = shield.contentStrike(setOf(signal), senderKey, message.sender, System.currentTimeMillis(),
@@ -112,7 +112,7 @@ object SpamShieldService {
 
             val cachedMuteExpiry = shield.muteExpiry(senderKey, senderLabel, nowMs)
             if (cachedMuteExpiry != null) {
-                recordHidden(message, scopeKey, senderKey, senderLabel, setOf(SpamSignal.MutedSender), 100)
+                recordHidden(message, scopeKey, senderKey, senderLabel, setOf(SpamSignal.MutedSender), 100, SpamSource.ContentRules)
                 return false
             }
 
@@ -140,7 +140,8 @@ object SpamShieldService {
                         senderKey,
                         senderLabel,
                         verdict.signals,
-                        verdict.score
+                        verdict.score,
+                        SpamSource.ContentRules
                     )
                     SpamShieldPreferences.saveMutes(shield.mutedSenders(nowMs))
                     if (verdict.mutedUntilMs > 0L) purgeSender(senderKey)
@@ -209,7 +210,7 @@ object SpamShieldService {
         // the sender to post something new.
         val already = _hidden.value.filter { it.senderKey == key }.map { it.message.id }.toSet()
         removed.filterNot { already.contains(it.message.id) }.forEach { entry ->
-            recordHidden(entry.message, entry.channel ?: MESH_SCOPE, key, entry.message.sender, setOf(SpamSignal.PurgedSender), 60)
+            recordHidden(entry.message, entry.channel ?: MESH_SCOPE, key, entry.message.sender, setOf(SpamSignal.PurgedSender), 60, SpamSource.UserJudgement)
         }
         while (removalLog.size > MAX_REMOVAL_LOG) {
             val oldest = removalLog.keys.first()
@@ -297,7 +298,8 @@ object SpamShieldService {
         senderKey: String,
         senderLabel: String,
         signals: Set<SpamSignal>,
-        score: Int
+        score: Int,
+        source: SpamSource
     ) {
         val hit = SpamHit(
             message = message,
@@ -306,7 +308,8 @@ object SpamShieldService {
             senderLabel = senderLabel,
             signals = signals,
             score = score,
-            hiddenAtMs = System.currentTimeMillis()
+            hiddenAtMs = System.currentTimeMillis(),
+            source = source
         )
         _hidden.value = (listOf(hit) + _hidden.value).take(MAX_LEDGER)
 
@@ -341,5 +344,9 @@ data class SpamHit(
     val senderLabel: String,
     val signals: Set<SpamSignal>,
     val score: Int,
-    val hiddenAtMs: Long
+    val hiddenAtMs: Long,
+    val source: SpamSource
 )
+
+/** Which engine decided the hide, so the sheet can say official filter or content rules. */
+enum class SpamSource { Official, ContentRules, UserJudgement }
