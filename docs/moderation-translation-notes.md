@@ -27,7 +27,7 @@ Duplicated rules the upstream engine does better were removed from `SpamShield`:
 repeat, cross-sender similarity, sender burst. Labels stayed the same, now fed by upstream.
 Scoring is additive with per-mode thresholds (Gentle 45/95, Balanced 30/55, Aggressive 20/40),
 and rate signals alone are never decisive: a single shouted word flags, it does not hide.
-Auto-mute is second-strike, content-only, never extends itself, default off.
+Auto-mute is second-strike, content-only, never extends itself, default 10 minutes.
 
 One switch governs both engines: the upstream Spam Filter row is the master, and the fork content rules score only when it is on. The fork section has no toggle of its own, so the settings sheet shows one switch, then the content rules under it. `SpamShieldPreferences.setEnabled` mirrors the upstream flag, and `policy()` reads it.
 

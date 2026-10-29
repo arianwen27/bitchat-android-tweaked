@@ -26,7 +26,10 @@ object SpamShieldPreferences {
 
     private const val DEFAULT_ENABLED = false
     private val DEFAULT_MODE = SpamMode.Balanced
-    private const val DEFAULT_AUTO_MUTE_MINUTES = 0
+    // Detection clears a sender's history only when a mute begins, and contentStrike returns before it
+    // counts strikes when auto-mute is off, so a zero default meant a fresh install detected spammers
+    // without ever purging their past messages. Ten minutes is the shortest choice the settings row offers.
+    private const val DEFAULT_AUTO_MUTE_MINUTES = 10
     private const val DEFAULT_FLAG_VISIBLE = true
     private const val DEFAULT_REQUIRE_POW = false
     private const val MAX_AUTO_MUTE_MINUTES = 720

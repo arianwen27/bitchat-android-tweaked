@@ -55,6 +55,17 @@ class SpamShieldPreferencesTest {
         assertTrue(store.getBoolean("require_pow_geohash", false))
     }
 
+    /**
+     * The shipped default is what makes live detection clear a sender's history: a purge runs only
+     * when a mute begins, and contentStrike returns before it counts strikes when auto-mute is off.
+     * A default of zero meant a fresh install detected spammers without ever purging their past
+     * messages, so the default is asserted rather than left to the constant.
+     */
+    @Test
+    fun autoMuteShipsAtTenMinutesSoDetectionCanPurge() {
+        assertEquals(10, SpamShieldPreferences.autoMuteMinutes.value)
+    }
+
     @Test
     fun autoMuteIsClampedToTheAllowedRange() {
         SpamShieldPreferences.setAutoMuteMinutes(5_000)
